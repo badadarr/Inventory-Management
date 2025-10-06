@@ -41,61 +41,68 @@ const formatDate = (date) => {
     <AuthenticatedLayout>
         <template #breadcrumb>Laporan Outstanding</template>
 
-        <div class="flex flex-wrap">
-            <div class="w-full px-4">
-                <div class="bg-white rounded-lg shadow-lg p-4 mb-4">
-                    <div class="grid gap-4 sm:grid-cols-1 md:grid-cols-3">
-                        <div>
-                            <label class="text-stone-600 text-sm font-medium">Start Date</label>
-                            <input v-model="filters.start_date" type="date" class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none"/>
-                        </div>
-                        <div>
-                            <label class="text-stone-600 text-sm font-medium">End Date</label>
-                            <input v-model="filters.end_date" type="date" class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none"/>
-                        </div>
-                        <div class="flex items-end">
-                            <button @click="applyFilter" class="w-full bg-emerald-500 text-white px-4 py-2 rounded-md hover:bg-emerald-600">
-                                Apply Filter
-                            </button>
+        <div class="flex flex-wrap mt-4">
+            <div class="w-full mb-12 px-4">
+                <div class="relative flex flex-col min-w-0 break-words w-full mb-6 shadow-lg rounded bg-white">
+                    <div class="rounded-t mb-0 px-4 py-3 border-0">
+                        <div class="flex flex-wrap items-center">
+                            <div class="relative w-full px-4 max-w-full flex-grow flex-1">
+                                <h3 class="font-semibold text-lg text-blueGray-700">Outstanding Orders ({{ orders.length }})</h3>
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow-lg overflow-x-auto">
+                    
                     <div class="px-4 py-3 border-b">
-                        <h4 class="text-2xl">Outstanding Orders ({{ orders.length }})</h4>
+                        <div class="grid gap-4 sm:grid-cols-1 md:grid-cols-3">
+                            <div>
+                                <label class="block uppercase text-blueGray-600 text-xs font-bold mb-2">Start Date</label>
+                                <input v-model="filters.start_date" type="date" class="border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"/>
+                            </div>
+                            <div>
+                                <label class="block uppercase text-blueGray-600 text-xs font-bold mb-2">End Date</label>
+                                <input v-model="filters.end_date" type="date" class="border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"/>
+                            </div>
+                            <div class="flex items-end">
+                                <button @click="applyFilter" class="bg-emerald-500 text-white active:bg-emerald-600 font-bold uppercase text-xs px-4 py-3 rounded shadow hover:shadow-md outline-none focus:outline-none ease-linear transition-all duration-150 w-full">
+                                    Apply Filter
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <table class="w-full">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th v-for="(head, idx) in tableHeads" :key="idx" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                                    {{ head }}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            <tr v-for="(order, index) in orders" :key="order.id" class="hover:bg-gray-50">
-                                <td class="px-4 py-3 whitespace-nowrap text-sm">{{ index + 1 }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-blueGray-600">{{ order.customer?.name }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm">{{ formatDate(order.tanggal_po) }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm">{{ formatDate(order.tanggal_kirim) }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm">{{ order.jenis_bahan || '-' }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm">{{ order.gramasi || '-' }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm">{{ order.volume || '-' }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm">{{ formatCurrency(order.harga_jual_pcs || 0) }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm">{{ order.jumlah_cetak || '-' }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm">{{ formatCurrency(order.total) }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm">{{ formatCurrency(order.charge || 0) }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm">{{ formatCurrency(order.paid) }}</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm font-bold text-red-600">{{ formatCurrency(order.due) }}</td>
-                            </tr>
-                            <tr v-if="orders.length === 0">
-                                <td :colspan="tableHeads.length" class="px-4 py-8 text-center text-gray-500">
-                                    No outstanding orders found
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+
+                    <div class="block w-full overflow-x-auto">
+                        <table class="items-center w-full bg-transparent border-collapse">
+                            <thead>
+                                <tr>
+                                    <th v-for="(head, idx) in tableHeads" :key="idx" class="px-6 align-middle border border-solid py-3 text-xs uppercase border-l-0 border-r-0 whitespace-nowrap font-semibold text-left bg-blueGray-50 text-blueGray-500 border-blueGray-100">
+                                        {{ head }}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(order, index) in orders" :key="order.id">
+                                    <TableData>{{ index + 1 }}</TableData>
+                                    <TableData class="font-bold">{{ order.customer?.name }}</TableData>
+                                    <TableData>{{ formatDate(order.tanggal_po) }}</TableData>
+                                    <TableData>{{ formatDate(order.tanggal_kirim) }}</TableData>
+                                    <TableData>{{ order.jenis_bahan || '-' }}</TableData>
+                                    <TableData>{{ order.gramasi || '-' }}</TableData>
+                                    <TableData>{{ order.volume || '-' }}</TableData>
+                                    <TableData>{{ formatCurrency(order.harga_jual_pcs || 0) }}</TableData>
+                                    <TableData>{{ order.jumlah_cetak || '-' }}</TableData>
+                                    <TableData>{{ formatCurrency(order.total) }}</TableData>
+                                    <TableData>{{ formatCurrency(order.charge || 0) }}</TableData>
+                                    <TableData>{{ formatCurrency(order.paid) }}</TableData>
+                                    <TableData class="font-bold text-red-600">{{ formatCurrency(order.due) }}</TableData>
+                                </tr>
+                                <tr v-if="orders.length === 0">
+                                    <td :colspan="tableHeads.length" class="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4 text-center text-blueGray-500">
+                                        No outstanding orders found
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

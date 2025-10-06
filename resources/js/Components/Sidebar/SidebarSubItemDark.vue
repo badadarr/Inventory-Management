@@ -3,7 +3,7 @@
         <Link
             :href="disabled ? '#' : route(routeName)"
             :class="[
-                'text-xs py-2 px-4 font-normal block transition-all duration-200',
+                'text-xs uppercase py-3 px-4 font-normal block transition-all duration-200',
                 isActive
                     ? 'text-white bg-emerald-500'
                     : 'text-emerald-50 hover:text-white hover:bg-emerald-500',
@@ -13,7 +13,7 @@
         >
             <i class="fas fa-circle text-xs mr-2" style="font-size: 6px;"></i>
             {{ name }}
-            <span v-if="disabled" class="text-xs text-gray-600 ml-2">(Soon)</span>
+            <span v-if="disabled" class="text-xs text-emerald-300 ml-2">(Soon)</span>
         </Link>
     </li>
 </template>
