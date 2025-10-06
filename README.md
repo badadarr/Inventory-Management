@@ -2,6 +2,8 @@
 
 A robust Inventory Management System built with **Laravel 10**, **MySQL**, **Inertia.js** and **Vue.js**, designed to streamline your inventory, sales, and purchasing processes. It's a Single Page Application (SPA)
 
+> **Note:** This project is cloned and extended from [Inventory-Management-System-Laravel-SPA](https://github.com/mamun724682/Inventory-Management-System-Laravel-SPA)
+
 ## 🌟 Key Features
 
 ### 📊 Core Modules
@@ -70,7 +72,7 @@ Follow these steps to set up the project locally:
 
 1. **Clone the repository:**
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/mamun724682/Inventory-Management-System-Laravel-SPA
     ```
 
 2. **Navigate to the project folder:**
