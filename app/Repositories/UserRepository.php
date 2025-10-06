@@ -140,6 +140,9 @@ class UserRepository
             })
             ->when(isset($filters[UserFiltersEnum::CREATED_AT->value]), function ($query) use ($filters) {
                 $query->whereBetween(UserFieldsEnum::CREATED_AT->value, $filters[UserFiltersEnum::CREATED_AT->value]);
+            })
+            ->when(isset($filters['company_id']), function ($query) use ($filters) {
+                $query->where('company_id', $filters['company_id']);
             });
     }
 }

@@ -24,8 +24,9 @@ class UserController extends Controller
 
     public function index(UserIndexRequest $request)
     {
+        $query = $request->validated();
+        
         if ($request->inertia == "disabled") {
-            $query = $request->validated();
             $query["sort_by"] = UserSortFieldsEnum::NAME->value;
             return $this->service->getAll($query);
         }
@@ -33,7 +34,7 @@ class UserController extends Controller
         return Inertia::render(
             component: 'User/Index',
             props: [
-                'users' => $this->service->getAll($request->validated()),
+                'users' => $this->service->getAll($query),
                 'filters'   => [
                     UserFiltersEnum::NAME->value  => [
                         'label'       => UserFiltersEnum::NAME->label(),
@@ -77,6 +78,17 @@ class UserController extends Controller
             'company_id' => 'nullable|integer',
         ]);
 
+        // If current user is Admin, prevent creating super_admin and force company_id
+        if (auth()->user()->role === UserRoleEnum::ADMIN->value) {
+            if ($validated['role'] === UserRoleEnum::SUPER_ADMIN->value) {
+                return back()->with('flash', [
+                    'isSuccess' => false,
+                    'message' => 'You cannot create a Super Admin user.'
+                ]);
+            }
+            $validated['company_id'] = auth()->user()->company_id;
+        }
+
         $validated['password'] = Hash::make($validated['password']);
 
         User::create($validated);
@@ -89,6 +101,22 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
+        // If current user is Admin, prevent editing super_admin users or users from other companies
+        if (auth()->user()->role === UserRoleEnum::ADMIN->value) {
+            if ($user->role === UserRoleEnum::SUPER_ADMIN->value) {
+                return back()->with('flash', [
+                    'isSuccess' => false,
+                    'message' => 'You do not have permission to edit Super Admin users.'
+                ]);
+            }
+            if ($user->company_id !== auth()->user()->company_id) {
+                return back()->with('flash', [
+                    'isSuccess' => false,
+                    'message' => 'You do not have permission to edit users from other companies.'
+                ]);
+            }
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
@@ -97,6 +125,17 @@ class UserController extends Controller
             'company_name' => 'nullable|string|max:255',
             'company_id' => 'nullable|integer',
         ]);
+
+        // If current user is Admin, prevent updating to super_admin and force company_id
+        if (auth()->user()->role === UserRoleEnum::ADMIN->value) {
+            if ($validated['role'] === UserRoleEnum::SUPER_ADMIN->value) {
+                return back()->with('flash', [
+                    'isSuccess' => false,
+                    'message' => 'You cannot set role to Super Admin.'
+                ]);
+            }
+            $validated['company_id'] = auth()->user()->company_id;
+        }
 
         if (!empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
@@ -119,6 +158,22 @@ class UserController extends Controller
                 'isSuccess' => false,
                 'message' => 'You cannot delete your own account.'
             ]);
+        }
+
+        // If current user is Admin, prevent deleting super_admin users or users from other companies
+        if (auth()->user()->role === UserRoleEnum::ADMIN->value) {
+            if ($user->role === UserRoleEnum::SUPER_ADMIN->value) {
+                return back()->with('flash', [
+                    'isSuccess' => false,
+                    'message' => 'You do not have permission to delete Super Admin users.'
+                ]);
+            }
+            if ($user->company_id !== auth()->user()->company_id) {
+                return back()->with('flash', [
+                    'isSuccess' => false,
+                    'message' => 'You do not have permission to delete users from other companies.'
+                ]);
+            }
         }
 
         $user->delete();

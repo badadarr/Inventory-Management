@@ -67,8 +67,12 @@ Route::middleware('auth')->group(function () {
         Route::apiResource('categories', CategoryController::class);
         Route::apiResource('unit-types', UnitTypeController::class);
         Route::apiResource('suppliers', SupplierController::class);
-        Route::apiResource('employees', EmployeeController::class);
         Route::apiResource('sales', SalesController::class);
+    });
+
+    // Employees - Super Admin, Admin & Finance
+    Route::middleware('role:super_admin,admin,finance')->group(function () {
+        Route::apiResource('employees', EmployeeController::class);
     });
 
     // Products - Super Admin, Admin & Warehouse

@@ -3,7 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import {Head, useForm, router, usePage} from '@inertiajs/vue3';
 import CardTable from "@/Components/Cards/CardTable.vue";
 import TableData from "@/Components/TableData.vue";
-import {ref, watch} from 'vue';
+import {ref, watch, computed} from 'vue';
 import {truncateString} from "@/Utils/Helper.js";
 import {push} from 'notivue';
 
@@ -37,6 +37,13 @@ const openCreateModal = () => {
     form.reset();
     form.clearErrors();
     isEdit.value = false;
+    
+    // If Admin, auto-fill company_name and company_id
+    if (page.props.auth.user.role === 'admin') {
+        form.company_name = page.props.auth.user.company_name;
+        form.company_id = page.props.auth.user.company_id;
+    }
+    
     showModal.value = true;
 };
 
@@ -86,6 +93,16 @@ watch(() => page.props.flash, (flash) => {
         });
     }
 }, { deep: true });
+
+// Filter roles - Admin cannot select super_admin
+const availableRoles = computed(() => {
+    if (page.props.auth.user.role === 'admin') {
+        const filtered = {...props.roles};
+        delete filtered.super_admin;
+        return filtered;
+    }
+    return props.roles;
+});
 </script>
 
 <template>
@@ -140,6 +157,10 @@ watch(() => page.props.flash, (flash) => {
                             <span v-if="user.id === $page.props.auth.user.id" class="text-xs font-semibold inline-block py-1 px-2 rounded text-green-600 bg-green-200">
                                 Current Login
                             </span>
+                            <!-- Admin cannot edit/delete Super Admin or users from other companies -->
+                            <span v-else-if="$page.props.auth.user.role === 'admin' && (user.role === 'super_admin' || user.company_id !== $page.props.auth.user.company_id)" class="text-xs font-semibold inline-block py-1 px-2 rounded text-gray-600 bg-gray-200">
+                                No Access
+                            </span>
                             <template v-else>
                                 <button
                                     @click="openEditModal(user)"
@@ -193,22 +214,32 @@ watch(() => page.props.flash, (flash) => {
                             <div class="mb-4">
                                 <label class="block text-gray-700 text-sm font-bold mb-2">Role</label>
                                 <select v-model="form.role" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
-                                    <option v-for="(label, value) in roles" :key="value" :value="value">{{ label }}</option>
+                                    <option v-for="(label, value) in availableRoles" :key="value" :value="value">{{ label }}</option>
                                 </select>
                                 <div v-if="form.errors.role" class="text-red-500 text-xs mt-1">{{ form.errors.role }}</div>
                             </div>
 
-                            <div class="mb-4">
-                                <label class="block text-gray-700 text-sm font-bold mb-2">Company Name</label>
-                                <input v-model="form.company_name" type="text" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                                <div v-if="form.errors.company_name" class="text-red-500 text-xs mt-1">{{ form.errors.company_name }}</div>
-                            </div>
+                            <!-- Company fields - Only for Super Admin and Admin -->
+                            <template v-if="$page.props.auth.user.role === 'super_admin' || $page.props.auth.user.role === 'admin'">
+                                <div class="mb-4">
+                                    <label class="block text-gray-700 text-sm font-bold mb-2">Company Name</label>
+                                    <input 
+                                        v-model="form.company_name" 
+                                        type="text" 
+                                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                                        :readonly="$page.props.auth.user.role === 'admin'"
+                                        :class="{'bg-gray-100 cursor-not-allowed': $page.props.auth.user.role === 'admin'}"
+                                    >
+                                    <div v-if="form.errors.company_name" class="text-red-500 text-xs mt-1">{{ form.errors.company_name }}</div>
+                                </div>
 
-                            <div class="mb-4">
-                                <label class="block text-gray-700 text-sm font-bold mb-2">Company ID</label>
-                                <input v-model="form.company_id" type="number" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                                <div v-if="form.errors.company_id" class="text-red-500 text-xs mt-1">{{ form.errors.company_id }}</div>
-                            </div>
+                                <!-- Company ID - Only for Super Admin -->
+                                <div v-if="$page.props.auth.user.role === 'super_admin'" class="mb-4">
+                                    <label class="block text-gray-700 text-sm font-bold mb-2">Company ID</label>
+                                    <input v-model="form.company_id" type="number" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                                    <div v-if="form.errors.company_id" class="text-red-500 text-xs mt-1">{{ form.errors.company_id }}</div>
+                                </div>
+                            </template>
                         </div>
                         <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                             <button type="submit" :disabled="form.processing" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-emerald-600 text-base font-medium text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 sm:ml-3 sm:w-auto sm:text-sm">

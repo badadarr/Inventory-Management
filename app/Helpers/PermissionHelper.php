@@ -102,6 +102,7 @@ class PermissionHelper
             'employees' => [
                 UserRoleEnum::SUPER_ADMIN->value,
                 UserRoleEnum::ADMIN->value,
+                UserRoleEnum::FINANCE->value,
             ],
             'settings' => [
                 UserRoleEnum::SUPER_ADMIN->value,

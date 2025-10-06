@@ -56,13 +56,20 @@ A robust Inventory Management System built with **Laravel 10**, **MySQL**, **Ine
 
 ### ⚙️ System
 - **Settings** - Application configuration
-- **User Management** - User accounts and permissions
-- **RBAC (Role-Based Access Control)** - Role management with 5 roles:
-    - Super Admin (full access)
-    - Admin (full access per company)
-    - Sales (customers, POS, orders, reports)
-    - Warehouse (products, orders)
-    - Finance (transactions, salaries, expenses, reports)
+- **User Management** - User accounts and permissions with multi-tenancy
+    - Company-based user isolation
+    - Role-based access restrictions
+    - Automatic company assignment for Admin users
+- **RBAC (Role-Based Access Control)** - Advanced role management with 5 roles:
+    - **Super Admin** - Full system access across all companies
+    - **Admin** - Full access within their company only
+        - Can manage users (Admin, Sales, Warehouse, Finance) in their company
+        - Cannot edit/delete Super Admin or users from other companies
+        - Company name auto-filled and read-only
+    - **Sales** - Customers, POS, orders, sales points, top customers reports
+    - **Warehouse** - Products, orders management
+    - **Finance** - Transactions, salaries, expenses, outstanding reports
+        - Can access employee data for salary payments
 
 ## 🚀 Quick Start
 
@@ -179,8 +186,15 @@ Quick guides:
 - ✅ **Single Page Application (SPA)** - Seamless user experience
 - ✅ **Responsive Design** - Works on desktop, tablet, and mobile
 - ✅ **Real-time Updates** - Instant data synchronization
-- ✅ **RBAC (Role-Based Access Control)** - 5 roles with granular permissions
-- ✅ **Multi-Company Support** - Company isolation for Admin role
+- ✅ **Advanced RBAC** - 5 roles with granular permissions and multi-tenancy
+- ✅ **Multi-Company Support** - Complete company isolation with access control
+    - Admin can only manage users within their company
+    - Automatic company_id assignment for Admin-created users
+    - Cross-company data visibility with restricted edit/delete access
+- ✅ **Secure User Management**
+    - Frontend and backend validation layers
+    - Role-based UI rendering (hide/show fields based on role)
+    - Company-based access restrictions
 - ✅ **Auto Customer Status** - Automatically tracks new/repeat customers
 - ✅ **Comprehensive Reports** - Outstanding, Top Customers, Sales Points
 - ✅ **Photo Upload** - Support for product and sales images
@@ -191,12 +205,33 @@ Quick guides:
 
 After running seeders, you can login with:
 
-| Role | Email | Password |
-|------|-------|----------|
-| Super Admin | superadmin@example.com | password |
-| Admin PT A | admin.pta@example.com | password |
-| Sales | sales@example.com | password |
-| Warehouse | warehouse@example.com | password |
-| Finance | finance@example.com | password |
+| Role | Email | Password | Company | Access Level |
+|------|-------|----------|---------|-------------|
+| Super Admin | superadmin@example.com | password | Head Office | Full access to all companies |
+| Admin PT A | admin.pta@example.com | password | PT. Company A | Full access to PT A users only |
+| Admin PT B | admin.ptb@example.com | password | PT. Company B | Full access to PT B users only |
+| Sales | sales@example.com | password | PT. Company A | Limited to sales functions |
+| Warehouse | warehouse@example.com | password | PT. Company A | Limited to warehouse functions |
+| Finance | finance@example.com | password | PT. Company A | Limited to finance functions |
 
-See `RBAC_QUICK_GUIDE.md` for complete role permissions.
+### RBAC & Multi-Tenancy Features:
+
+**Super Admin:**
+- View, create, edit, delete all users across all companies
+- Can set any role including Super Admin
+- Can freely assign company_id and company_name
+
+**Admin (Per Company):**
+- View all users (including other companies and Super Admin) - read-only
+- Create, edit, delete users only within their own company
+- Cannot select Super Admin role (hidden from dropdown)
+- Cannot edit/delete Super Admin users ("No Access" badge shown)
+- Cannot edit/delete users from other companies ("No Access" badge shown)
+- Company name auto-filled and read-only when creating users
+- Company_id automatically set to their own company
+
+**Sales, Warehouse, Finance:**
+- Access limited to their specific functional areas
+- Finance role has access to employee data for salary payments
+
+See `RBAC_QUICK_GUIDE.md` for complete role permissions and detailed examples.
