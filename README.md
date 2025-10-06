@@ -57,6 +57,12 @@ A robust Inventory Management System built with **Laravel 10**, **MySQL**, **Ine
 ### ⚙️ System
 - **Settings** - Application configuration
 - **User Management** - User accounts and permissions
+- **RBAC (Role-Based Access Control)** - Role management with 5 roles:
+    - Super Admin (full access)
+    - Admin (full access per company)
+    - Sales (customers, POS, orders, reports)
+    - Warehouse (products, orders)
+    - Finance (transactions, salaries, expenses, reports)
 
 ## 🚀 Quick Start
 
@@ -144,6 +150,10 @@ Detailed documentation is available in the `app/Documentation/` folder:
 - `QUICK_START_GUIDE.md` - Step-by-step usage guide
 - `IMPLEMENTATION_SUMMARY.md` - Backend implementation details
 - `FRONTEND_IMPLEMENTATION.md` - Frontend implementation details
+- `RBAC_IMPLEMENTATION.md` - Role-Based Access Control documentation
+
+Quick guides:
+- `RBAC_QUICK_GUIDE.md` - Quick start guide for RBAC
 
 ## 🛠️ Tech Stack
 
@@ -169,8 +179,24 @@ Detailed documentation is available in the `app/Documentation/` folder:
 - ✅ **Single Page Application (SPA)** - Seamless user experience
 - ✅ **Responsive Design** - Works on desktop, tablet, and mobile
 - ✅ **Real-time Updates** - Instant data synchronization
+- ✅ **RBAC (Role-Based Access Control)** - 5 roles with granular permissions
+- ✅ **Multi-Company Support** - Company isolation for Admin role
 - ✅ **Auto Customer Status** - Automatically tracks new/repeat customers
 - ✅ **Comprehensive Reports** - Outstanding, Top Customers, Sales Points
 - ✅ **Photo Upload** - Support for product and sales images
 - ✅ **Currency Formatting** - Indonesian Rupiah (IDR) format
 - ✅ **Date Localization** - Indonesian date format
+
+## 🔐 Default Login Credentials
+
+After running seeders, you can login with:
+
+| Role | Email | Password |
+|------|-------|----------|
+| Super Admin | superadmin@example.com | password |
+| Admin PT A | admin.pta@example.com | password |
+| Sales | sales@example.com | password |
+| Warehouse | warehouse@example.com | password |
+| Finance | finance@example.com | password |
+
+See `RBAC_QUICK_GUIDE.md` for complete role permissions.

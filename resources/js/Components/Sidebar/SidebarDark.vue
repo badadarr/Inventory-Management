@@ -93,16 +93,17 @@
 
                     <!-- Master Data -->
                     <SidebarCollapsibleItemDark
+                        v-if="permissions.canAccessMasterData()"
                         title="Master Data"
                         icon="fas fa-database"
                         :routes="['categories.index', 'unit-types.index', 'products.index', 'suppliers.index', 'customers.index', 'sales.index']"
                     >
-                        <SidebarSubItemDark name="Categories" routeName="categories.index" />
-                        <SidebarSubItemDark name="Unit Types" routeName="unit-types.index" />
-                        <SidebarSubItemDark name="Products" routeName="products.index" />
-                        <SidebarSubItemDark name="Suppliers" routeName="suppliers.index" />
-                        <SidebarSubItemDark name="Customers" routeName="customers.index" />
-                        <SidebarSubItemDark name="Sales" routeName="sales.index" />
+                        <SidebarSubItemDark v-if="permissions.canAccessCategories()" name="Categories" routeName="categories.index" />
+                        <SidebarSubItemDark v-if="permissions.canAccessUnitTypes()" name="Unit Types" routeName="unit-types.index" />
+                        <SidebarSubItemDark v-if="permissions.canAccessProducts()" name="Products" routeName="products.index" />
+                        <SidebarSubItemDark v-if="permissions.canAccessSuppliers()" name="Suppliers" routeName="suppliers.index" />
+                        <SidebarSubItemDark v-if="permissions.canAccessCustomers()" name="Customers" routeName="customers.index" />
+                        <SidebarSubItemDark v-if="permissions.canAccessSales()" name="Sales" routeName="sales.index" />
                     </SidebarCollapsibleItemDark>
 
                     <!-- Purchasing (Future) -->
@@ -118,46 +119,50 @@
 
                     <!-- Inventory -->
                     <SidebarCollapsibleItemDark
+                        v-if="permissions.canAccessPOS() || permissions.canAccessOrders()"
                         title="Inventory"
                         icon="fas fa-boxes"
                         :routes="['carts.index', 'orders.index']"
                     >
-                        <SidebarSubItemDark name="POS" routeName="carts.index" />
-                        <SidebarSubItemDark name="Orders" routeName="orders.index" />
+                        <SidebarSubItemDark v-if="permissions.canAccessPOS()" name="POS" routeName="carts.index" />
+                        <SidebarSubItemDark v-if="permissions.canAccessOrders()" name="Orders" routeName="orders.index" />
                         <SidebarSubItemDark name="Stock Movement" routeName="#" :disabled="true" />
                     </SidebarCollapsibleItemDark>
 
                     <!-- Reports -->
                     <SidebarCollapsibleItemDark
+                        v-if="permissions.canAccessReports() || permissions.canAccessTransactions() || permissions.canAccessSalesPoints() || permissions.canAccessOutstanding() || permissions.canAccessTopCustomers()"
                         title="Reports"
                         icon="fas fa-chart-bar"
                         :routes="['transactions.index', 'sales-points.index', 'reports.outstanding', 'reports.top-customers']"
                     >
-                        <SidebarSubItemDark name="Transactions" routeName="transactions.index" />
-                        <SidebarSubItemDark name="Sales Points" routeName="sales-points.index" />
-                        <SidebarSubItemDark name="Outstanding" routeName="reports.outstanding" />
-                        <SidebarSubItemDark name="Top Customers" routeName="reports.top-customers" />
+                        <SidebarSubItemDark v-if="permissions.canAccessTransactions()" name="Transactions" routeName="transactions.index" />
+                        <SidebarSubItemDark v-if="permissions.canAccessSalesPoints()" name="Sales Points" routeName="sales-points.index" />
+                        <SidebarSubItemDark v-if="permissions.canAccessOutstanding()" name="Outstanding" routeName="reports.outstanding" />
+                        <SidebarSubItemDark v-if="permissions.canAccessTopCustomers()" name="Top Customers" routeName="reports.top-customers" />
                         <SidebarSubItemDark name="Sales Report" routeName="#" :disabled="true" />
                         <SidebarSubItemDark name="Stock Report" routeName="#" :disabled="true" />
                     </SidebarCollapsibleItemDark>
 
                     <!-- Finance -->
                     <SidebarCollapsibleItemDark
+                        v-if="permissions.canAccessFinance() || permissions.canAccessSalaries() || permissions.canAccessExpenses()"
                         title="Finance"
                         icon="fas fa-dollar-sign"
                         :routes="['salaries.index', 'expenses.index']"
                     >
-                        <SidebarSubItemDark name="Salary" routeName="salaries.index" />
-                        <SidebarSubItemDark name="Expenses" routeName="expenses.index" />
+                        <SidebarSubItemDark v-if="permissions.canAccessSalaries()" name="Salary" routeName="salaries.index" />
+                        <SidebarSubItemDark v-if="permissions.canAccessExpenses()" name="Expenses" routeName="expenses.index" />
                     </SidebarCollapsibleItemDark>
 
                     <!-- Others -->
                     <SidebarCollapsibleItemDark
                         title="Others"
                         icon="fas fa-ellipsis-h"
-                        :routes="['employees.index', 'profile.edit']"
+                        :routes="['employees.index', 'users.index', 'profile.edit']"
                     >
-                        <SidebarSubItemDark name="Employees" routeName="employees.index" />
+                        <SidebarSubItemDark v-if="permissions.canAccessEmployees()" name="Employees" routeName="employees.index" />
+                        <SidebarSubItemDark v-if="permissions.canAccessUsers()" name="Users" routeName="users.index" />
                         <SidebarSubItemDark name="Settings" routeName="profile.edit" />
                     </SidebarCollapsibleItemDark>
 
@@ -189,7 +194,7 @@
                         </div>
                         <div class="ml-3 flex-1">
                             <p class="text-white text-sm font-medium">{{ $page.props.auth.user.name }}</p>
-                            <p class="text-emerald-100 text-xs">Administrator</p>
+                            <p class="text-emerald-100 text-xs">{{ $page.props.auth.user.role_label }}</p>
                         </div>
                     </div>
                 </div>
@@ -200,10 +205,13 @@
 
 <script setup>
 import {useForm, usePage} from "@inertiajs/vue3";
+import { usePermissions } from "@/Utils/permissions.js";
 
 const form = useForm({
     keyword: null,
 });
+
+const permissions = usePermissions();
 
 const searchProduct = () => {
     form.get(route('carts.index'), {

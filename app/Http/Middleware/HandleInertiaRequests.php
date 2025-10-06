@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Enums\Setting\SettingFieldsEnum;
+use App\Helpers\PermissionHelper;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
@@ -35,6 +36,9 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth' => [
                 'user' => $request->user(),
+                'permissions' => $request->user() 
+                    ? PermissionHelper::getAccessibleMenus($request->user()->role->value)
+                    : [],
             ],
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\User\UserRoleEnum;
 use App\Helpers\BaseHelper;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,6 +24,8 @@ class User extends Authenticatable
         'name',
         'company_name',
         'email',
+        'role',
+        'company_id',
         'password',
         'photo'
     ];
@@ -45,7 +48,10 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'role' => UserRoleEnum::class,
     ];
+
+    protected $appends = ['role_label'];
 
     const PHOTO_PATH = "users";
     protected function photo(): Attribute
@@ -56,5 +62,48 @@ class User extends Authenticatable
                 folderPath: self::PHOTO_PATH
             ),
         );
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === UserRoleEnum::SUPER_ADMIN;
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === UserRoleEnum::ADMIN;
+    }
+
+    public function isSales(): bool
+    {
+        return $this->role === UserRoleEnum::SALES;
+    }
+
+    public function isWarehouse(): bool
+    {
+        return $this->role === UserRoleEnum::WAREHOUSE;
+    }
+
+    public function isFinance(): bool
+    {
+        return $this->role === UserRoleEnum::FINANCE;
+    }
+
+    public function hasRole(string|array $roles): bool
+    {
+        if (is_array($roles)) {
+            return in_array($this->role->value, $roles);
+        }
+        return $this->role->value === $roles;
+    }
+
+    public function canAccessAllMenus(): bool
+    {
+        return $this->isSuperAdmin() || $this->isAdmin();
+    }
+
+    public function getRoleLabelAttribute(): string
+    {
+        return $this->role?->label() ?? 'User';
     }
 }
