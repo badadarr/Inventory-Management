@@ -8,7 +8,7 @@ import InputError from "@/Components/InputError.vue";
 import Modal from "@/Components/Modal.vue";
 import {useForm} from '@inertiajs/vue3';
 import {ref} from 'vue';
-import {formatDatetime, getCurrency, numberFormat, showToast, truncateString} from "@/Utils/Helper.js";
+import {formatCurrency, formatDatetime, numberFormat, showToast, truncateString} from "@/Utils/Helper.js";
 import TableHead from "@/Components/TableHead.vue";
 
 defineProps({
@@ -27,7 +27,7 @@ const selectedOrder = ref(null);
 const showOrderItemsModal = ref(false);
 const showPaymentModal = ref(false);
 const showSettleModal = ref(false);
-const tableHeads = ref(["Order Number", "Customer", "Summary(" + getCurrency() + ")", "Paid", "Due", "Profit", "Loss", "Status", "Date", "Action"]);
+const tableHeads = ref(["Order Number", "Customer", "Summary(Rp)", "Paid", "Due", "Profit", "Loss", "Status", "Date", "Action"]);
 
 const form = useForm({
     amount: null,
@@ -114,9 +114,9 @@ const closeModal = () => {
                             <span>Discount: {{ order.discount_total }}</span><br>
                             <span>Total: {{ order.total }}</span><br>
                         </TableData>
-                        <TableData>{{ getCurrency() }}{{ order.paid }}</TableData>
+                        <TableData>{{ formatCurrency(order.paid) }}</TableData>
                         <TableData>
-                            <span :class="order.due > 0 ? 'text-red-500 text-xl font-bold' : ''">{{ getCurrency() }}{{ order.due }}</span>
+                            <span :class="order.due > 0 ? 'text-red-500 text-xl font-bold' : ''">{{ formatCurrency(order.due) }}</span>
                             <br>
                             <div class="flex" v-if="order.due > 0">
                                 <Button
@@ -136,8 +136,8 @@ const closeModal = () => {
                                 </Button>
                             </div>
                         </TableData>
-                        <TableData :class="order.profit > 0 ? 'text-emerald-500 font-bold' : ''">{{ getCurrency() }}{{ order.profit }}</TableData>
-                        <TableData :class="order.loss > 0 ? 'text-red-500 font-bold' : ''">{{ getCurrency() }}{{ order.loss }}</TableData>
+                        <TableData :class="order.profit > 0 ? 'text-emerald-500 font-bold' : ''">{{ formatCurrency(order.profit) }}</TableData>
+                        <TableData :class="order.loss > 0 ? 'text-red-500 font-bold' : ''">{{ formatCurrency(order.loss) }}</TableData>
                         <TableData>
                             <span v-if="order.status === 'paid'" class="text-xs font-semibold inline-block py-1 px-2 rounded text-emerald-600 bg-emerald-200">Paid</span>
                             <span v-else-if="order.status === 'partial_paid'" class="text-xs font-semibold inline-block py-1 px-2 rounded text-amber-600 bg-amber-200">Partial Paid</span>
@@ -201,9 +201,9 @@ const closeModal = () => {
                                 <TableData>{{ orderItem.product_json?.product_number || '-' }}</TableData>
                                 <TableData>{{ orderItem.product_json?.product_code || '-' }}</TableData>
                                 <TableData>
-                                    Buying: <strong>{{ getCurrency() }}{{ orderItem.product_json?.buying_price || 0 }}</strong>
+                                    Buying: <strong>{{ formatCurrency(orderItem.product_json?.buying_price || 0) }}</strong>
                                     <br>
-                                    Selling: <strong>{{getCurrency() }}{{ orderItem.product_json?.selling_price || 0 }}</strong>
+                                    Selling: <strong>{{ formatCurrency(orderItem.product_json?.selling_price || 0) }}</strong>
                                 </TableData>
                                 <TableData>
                                     <strong>{{ numberFormat(orderItem.quantity) }}{{ orderItem.product?.unit_type?.symbol || '' }}</strong>

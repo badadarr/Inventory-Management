@@ -3,12 +3,13 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import {Head, router} from '@inertiajs/vue3';
 import CardTable from "@/Components/Cards/CardTable.vue";
 import TableData from "@/Components/TableData.vue";
+import Pagination from "@/Components/Pagination.vue";
 import {ref} from 'vue';
 
 defineProps({
     customers: {
-        type: Array,
-        default: () => []
+        type: Object,
+        default: () => ({})
     },
 });
 
@@ -48,7 +49,7 @@ const formatNumber = (num) => {
                     <div class="rounded-t mb-0 px-4 py-3 border-0">
                         <div class="flex flex-wrap items-center">
                             <div class="relative w-full px-4 max-w-full flex-grow flex-1">
-                                <h3 class="font-semibold text-lg text-blueGray-700">Top {{ customers.length }} Customers</h3>
+                                <h3 class="font-semibold text-lg text-blueGray-700">Top {{ customers.total }} Customers</h3>
                             </div>
                         </div>
                     </div>
@@ -90,23 +91,26 @@ const formatNumber = (num) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="(customer, index) in customers" :key="index">
+                                <tr v-for="(customer, index) in customers.data" :key="index">
                                     <TableData>
-                                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full font-bold" :class="index === 0 ? 'bg-yellow-400 text-white' : index === 1 ? 'bg-gray-300 text-white' : index === 2 ? 'bg-orange-400 text-white' : 'bg-blue-100 text-blue-800'">
-                                            {{ index + 1 }}
+                                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full font-bold" :class="(customers.from + index - 1) === 0 ? 'bg-yellow-400 text-white' : (customers.from + index - 1) === 1 ? 'bg-gray-300 text-white' : (customers.from + index - 1) === 2 ? 'bg-orange-400 text-white' : 'bg-blue-100 text-blue-800'">
+                                            {{ customers.from + index }}
                                         </span>
                                     </TableData>
                                     <TableData class="font-bold">{{ customer.customer?.name }}</TableData>
                                     <TableData>{{ formatNumber(customer.total_lembar || 0) }}</TableData>
                                     <TableData class="font-bold text-green-600">{{ formatCurrency(customer.total_penjualan) }}</TableData>
                                 </tr>
-                                <tr v-if="customers.length === 0">
+                                <tr v-if="customers.data?.length === 0">
                                     <td :colspan="tableHeads.length" class="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4 text-center text-blueGray-500">
                                         No customers found
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                    <div class="px-4 py-3">
+                        <Pagination :links="customers.links"/>
                     </div>
                 </div>
             </div>

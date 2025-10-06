@@ -20,7 +20,7 @@ class ReportRepository
             $query->whereDate('tanggal_po', '<=', $filters['end_date']);
         }
 
-        return $query->orderBy('tanggal_po', 'desc')->get();
+        return $query->orderBy('tanggal_po', 'desc')->paginate(15);
     }
 
     public function getTopCustomers(array $filters = [])
@@ -41,8 +41,8 @@ class ReportRepository
             $query->whereDate('created_at', '<=', $filters['end_date']);
         }
 
+        $perPage = $filters['limit'] ?? 10;
         return $query->orderBy('total_penjualan', 'desc')
-            ->limit($filters['limit'] ?? 10)
-            ->get();
+            ->paginate($perPage);
     }
 }

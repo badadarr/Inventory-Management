@@ -9,11 +9,12 @@ import {nextTick, ref} from 'vue';
 import DashboardInputGroup from "@/Components/DashboardInputGroup.vue";
 import InputError from "@/Components/InputError.vue";
 import {showToast} from "@/Utils/Helper.js";
+import Pagination from "@/Components/Pagination.vue";
 
 defineProps({
     sales: {
-        type: Array,
-        default: () => []
+        type: Object,
+        default: () => ({})
     },
 });
 
@@ -103,13 +104,13 @@ const closeModal = () => {
                 <CardTable :tableHeads="tableHeads">
                     <template #cardHeader>
                         <div class="flex justify-between items-center">
-                            <h4 class="text-2xl">Sales List ({{ sales.length }})</h4>
+                            <h4 class="text-2xl">Sales List ({{ sales.total }})</h4>
                             <Button @click="createModal">Create Sales</Button>
                         </div>
                     </template>
 
-                    <tr v-for="(item, index) in sales" :key="item.id">
-                        <TableData>{{ index + 1 }}</TableData>
+                    <tr v-for="(item, index) in sales.data" :key="item.id">
+                        <TableData>{{ sales.from + index }}</TableData>
                         <TableData class="text-left flex items-center">
                             <img :src="item.photo" class="h-12 w-12 bg-white rounded-full border object-cover" alt="Sales"/>
                             <span class="ml-3 font-bold text-blueGray-600">{{ item.name }}</span>
@@ -127,6 +128,7 @@ const closeModal = () => {
                         </TableData>
                     </tr>
                 </CardTable>
+                <Pagination :links="sales.links" class="mt-4"/>
             </div>
         </div>
 

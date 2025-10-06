@@ -3,13 +3,13 @@
 namespace App\Repositories;
 
 use App\Models\Sales;
-use Illuminate\Database\Eloquent\Collection;
+
 
 class SalesRepository
 {
-    public function all(): Collection
+    public function all()
     {
-        return Sales::orderBy('name')->get();
+        return Sales::orderBy('name')->paginate(10);
     }
 
     public function find(int $id): ?Sales

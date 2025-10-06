@@ -1,10 +1,10 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import {Head} from '@inertiajs/vue3';
+import { Head } from '@inertiajs/vue3';
 import CardTable from "@/Components/Cards/CardTable.vue";
 import TableData from "@/Components/TableData.vue";
-import {ref} from 'vue';
-import {formatDatetime, getCurrency} from "@/Utils/Helper.js";
+import { ref } from 'vue';
+import { formatCurrency, formatDatetime } from "@/Utils/Helper.js";
 
 defineProps({
     filters: {
@@ -19,7 +19,8 @@ const tableHeads = ref(['#', "Transaction Number", "Order Number", "Amount", "Pa
 </script>
 
 <template>
-    <Head title="Transaction"/>
+
+    <Head title="Transaction" />
 
     <AuthenticatedLayout>
         <template #breadcrumb>
@@ -28,25 +29,22 @@ const tableHeads = ref(['#', "Transaction Number", "Order Number", "Amount", "Pa
 
         <div class="flex flex-wrap">
             <div class="w-full px-4">
-                <CardTable
-                    indexRoute="transactions.index"
-                    :paginatedData="transactions"
-                    :filters="filters"
-                    :tableHeads="tableHeads"
-                >
+                <CardTable indexRoute="transactions.index" :paginatedData="transactions" :filters="filters"
+                    :tableHeads="tableHeads">
                     <template #cardHeader>
                         <div class="flex justify-between items-center">
-                            <h4 class="text-2xl">Apply filters({{transactions.total}})</h4>
+                            <h4 class="text-2xl">Apply filters({{ transactions.total }})</h4>
                         </div>
                     </template>
 
                     <tr v-for="(transaction, index) in transactions.data" :key="transaction.id">
                         <TableData>
-                            {{ (transactions.current_page * transactions.per_page) - (transactions.per_page - (index + 1)) }}
+                            {{ (transactions.current_page * transactions.per_page) - (transactions.per_page - (index +
+                            1)) }}
                         </TableData>
                         <TableData>{{ transaction.transaction_number }}</TableData>
                         <TableData>{{ transaction.order.order_number }}</TableData>
-                        <TableData>{{ getCurrency() }}{{ transaction.amount }}</TableData>
+                        <TableData>{{ formatCurrency(transaction.amount) }}</TableData>
                         <TableData>{{ transaction.paid_through }}</TableData>
                         <TableData>{{ formatDatetime(transaction.created_at) }}</TableData>
                     </tr>

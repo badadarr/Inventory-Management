@@ -3,12 +3,13 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import {Head, router} from '@inertiajs/vue3';
 import CardTable from "@/Components/Cards/CardTable.vue";
 import TableData from "@/Components/TableData.vue";
+import Pagination from "@/Components/Pagination.vue";
 import {ref} from 'vue';
 
 defineProps({
     orders: {
-        type: Array,
-        default: () => []
+        type: Object,
+        default: () => ({})
     },
 });
 
@@ -47,7 +48,7 @@ const formatDate = (date) => {
                     <div class="rounded-t mb-0 px-4 py-3 border-0">
                         <div class="flex flex-wrap items-center">
                             <div class="relative w-full px-4 max-w-full flex-grow flex-1">
-                                <h3 class="font-semibold text-lg text-blueGray-700">Outstanding Orders ({{ orders.length }})</h3>
+                                <h3 class="font-semibold text-lg text-blueGray-700">Outstanding Orders ({{ orders.total }})</h3>
                             </div>
                         </div>
                     </div>
@@ -80,8 +81,8 @@ const formatDate = (date) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="(order, index) in orders" :key="order.id">
-                                    <TableData>{{ index + 1 }}</TableData>
+                                <tr v-for="(order, index) in orders.data" :key="order.id">
+                                    <TableData>{{ orders.from + index }}</TableData>
                                     <TableData class="font-bold">{{ order.customer?.name }}</TableData>
                                     <TableData>{{ formatDate(order.tanggal_po) }}</TableData>
                                     <TableData>{{ formatDate(order.tanggal_kirim) }}</TableData>
@@ -95,13 +96,16 @@ const formatDate = (date) => {
                                     <TableData>{{ formatCurrency(order.paid) }}</TableData>
                                     <TableData class="font-bold text-red-600">{{ formatCurrency(order.due) }}</TableData>
                                 </tr>
-                                <tr v-if="orders.length === 0">
+                                <tr v-if="orders.data?.length === 0">
                                     <td :colspan="tableHeads.length" class="border-t-0 px-6 align-middle border-l-0 border-r-0 text-xs whitespace-nowrap p-4 text-center text-blueGray-500">
                                         No outstanding orders found
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                    <div class="px-4 py-3">
+                        <Pagination :links="orders.links"/>
                     </div>
                 </div>
             </div>

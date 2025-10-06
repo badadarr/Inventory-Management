@@ -3,11 +3,12 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import {Head} from '@inertiajs/vue3';
 import CardTable from "@/Components/Cards/CardTable.vue";
 import TableData from "@/Components/TableData.vue";
+import Pagination from "@/Components/Pagination.vue";
 
 defineProps({
     recap: {
-        type: Array,
-        default: () => []
+        type: Object,
+        default: () => ({})
     },
 });
 
@@ -31,8 +32,8 @@ const formatNumber = (num) => {
                         <h4 class="text-2xl">Rekap Point Penjualan</h4>
                     </template>
 
-                    <tr v-for="(item, index) in recap" :key="index">
-                        <TableData>{{ index + 1 }}</TableData>
+                    <tr v-for="(item, index) in recap.data" :key="index">
+                        <TableData>{{ recap.from + index }}</TableData>
                         <TableData class="text-left font-bold text-blueGray-600">{{ item.sales?.name }}</TableData>
                         <TableData>
                             <span :class="item.product_type === 'box' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'" class="px-2 py-1 rounded text-xs">
@@ -43,6 +44,7 @@ const formatNumber = (num) => {
                         <TableData class="font-bold text-green-600">{{ formatNumber(item.total_points) }}</TableData>
                     </tr>
                 </CardTable>
+                <Pagination :links="recap.links" class="mt-4"/>
             </div>
         </div>
     </AuthenticatedLayout>

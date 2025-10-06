@@ -25,6 +25,6 @@ class SalesPointRepository
         return SalesPoint::selectRaw('sales_id, product_type, SUM(jumlah_cetak) as total_cetak, SUM(points) as total_points')
             ->with('sales:id,name')
             ->groupBy('sales_id', 'product_type')
-            ->get();
+            ->paginate(15);
     }
 }
