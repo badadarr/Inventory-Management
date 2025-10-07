@@ -2,6 +2,7 @@
 import InputError from '@/Components/InputError.vue';
 import {Link, useForm, usePage} from '@inertiajs/vue3';
 import SubmitButton from "@/Components/SubmitButton.vue";
+import { computed } from 'vue';
 
 defineProps({
     mustVerifyEmail: {
@@ -13,6 +14,10 @@ defineProps({
 });
 
 const user = usePage().props.auth.user;
+
+const canEditCompanyName = computed(() => {
+    return user.role === 'super_admin' || user.role === 'admin';
+});
 
 const form = useForm({
     name: user.name,
@@ -58,9 +63,11 @@ const form = useForm({
                     <input
                         id="company_name"
                         type="text"
-                        class="border-0 px-3 py-3 placeholder-blueGray-300 text-blueGray-600 bg-white rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"
+                        class="border-0 px-3 py-3 placeholder-blueGray-300 rounded text-sm shadow focus:outline-none focus:ring w-full ease-linear transition-all duration-150"
+                        :class="canEditCompanyName ? 'bg-white text-blueGray-600' : 'bg-blueGray-200 cursor-not-allowed text-blueGray-500'"
                         v-model="form.company_name"
                         placeholder="PT Company Name"
+                        :disabled="!canEditCompanyName"
                     />
                     <InputError :message="form.errors.company_name"/>
                 </div>

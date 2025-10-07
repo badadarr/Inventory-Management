@@ -39,7 +39,14 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $validated = $request->validated();
+        
+        // Prevent non-admin/super_admin from updating company_name
+        if (!in_array($request->user()->role, ['super_admin', 'admin'])) {
+            unset($validated['company_name']);
+        }
+        
+        $request->user()->fill($validated);
 
         if ($request->user()->isDirty('email')) {
             $request->user()->email_verified_at = null;
