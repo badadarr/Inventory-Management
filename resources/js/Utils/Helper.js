@@ -33,6 +33,17 @@ export function formatDatetime(datetime) {
     return date.toLocaleString('en-US', options);
 }
 
+export function formatDate(date) {
+    if (!date) return '';
+    const d = new Date(date);
+    const options = {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    };
+    return d.toLocaleString('en-US', options);
+}
+
 export function showToast() {
     if (usePage().props.flash.isSuccess) {
         push.success(usePage().props.flash.message)

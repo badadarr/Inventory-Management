@@ -31,6 +31,10 @@ const props = defineProps({
         type: String,
         default: "Submit",
     },
+    showFooter: {
+        type: Boolean,
+        default: true,
+    },
 });
 
 const emit = defineEmits(['close', 'submitAction']);
@@ -133,7 +137,7 @@ const maxWidthClass = computed(() => {
 
                             <slot v-if="show"/>
 
-                            <div class="mt-6 flex justify-end">
+                            <div v-if="showFooter" class="mt-6 flex justify-end">
                                 <Button type="gray" @click="close">Cancel</Button>
                                 <SubmitButton
                                     v-if="showSubmitButton"

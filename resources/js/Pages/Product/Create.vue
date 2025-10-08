@@ -7,6 +7,7 @@ import {ref} from 'vue';
 import Button from "@/Components/Button.vue";
 import SubmitButton from "@/Components/SubmitButton.vue";
 import AsyncVueSelect from "@/Components/AsyncVueSelect.vue";
+import ProductSizeRepeater from "@/Components/ProductSizeRepeater.vue";
 import {showToast} from "@/Utils/Helper.js";
 import default_image from "@/assets/img/default-image.jpg";
 
@@ -25,24 +26,30 @@ const form = useForm({
     category_id: null,
     supplier_id: null,
     name: null,
-    description: null,
     bahan: null,
     gramatur: null,
-    ukuran: null,
-    ukuran_potongan_1: null,
-    ukuran_plano_1: null,
-    ukuran_potongan_2: null,
-    ukuran_plano_2: null,
     alamat_pengiriman: null,
     product_code: null,
-    root: null,
-    buying_date: null,
     buying_price: null,
     selling_price: null,
     unit_type_id: null,
     quantity: null,
+    reorder_level: null,
+    keterangan_tambahan: null,
     photo: null,
     status: 'active',
+    sizes: [{
+        size_name: '',
+        ukuran_potongan: '',
+        ukuran_plano: '',
+        width: null,
+        height: null,
+        plano_width: null,
+        plano_height: null,
+        notes: '',
+        is_default: true,
+        sort_order: 0
+    }]
 });
 
 const handleFileChange = (event) => {
@@ -138,30 +145,6 @@ const createProduct = () => {
                                 <InputError :message="form.errors.product_code"/>
                             </div>
                             <div class="flex flex-col">
-                                <label for="root" class="text-stone-600 text-sm font-medium">Root (Optional)</label>
-                                <input
-                                    id="root"
-                                    v-model="form.root"
-                                    @keyup.enter="createProduct"
-                                    type="text"
-                                    placeholder="Enter root (optional)"
-                                    class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
-                                />
-                                <InputError :message="form.errors.root"/>
-                            </div>
-                            <div class="flex flex-col">
-                                <label for="buying_date" class="text-stone-600 text-sm font-medium">Buying Date</label>
-                                <input
-                                    id="buying_date"
-                                    v-model="form.buying_date"
-                                    @keyup.enter="createProduct"
-                                    type="date"
-                                    placeholder="Enter buying date"
-                                    class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
-                                />
-                                <InputError :message="form.errors.buying_date"/>
-                            </div>
-                            <div class="flex flex-col">
                                 <label for="buying_price" class="text-stone-600 text-sm font-medium">Buying Price</label>
                                 <input
                                     id="buying_price"
@@ -207,6 +190,20 @@ const createProduct = () => {
                                 <InputError :message="form.errors.quantity"/>
                             </div>
                             <div class="flex flex-col">
+                                <label for="reorder_level" class="text-stone-600 text-sm font-medium">Reorder Level (Optional)</label>
+                                <input
+                                    id="reorder_level"
+                                    v-model="form.reorder_level"
+                                    @keyup.enter="createProduct"
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="e.g. 100"
+                                    class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
+                                />
+                                <InputError :message="form.errors.reorder_level"/>
+                                <span class="text-xs text-gray-500 mt-1">⚠️ Alert when stock falls below this level</span>
+                            </div>
+                            <div class="flex flex-col">
                                 <label for="status" class="text-stone-600 text-sm font-medium">Status</label>
                                 <select
                                     id="status"
@@ -218,37 +215,34 @@ const createProduct = () => {
                                 </select>
                                 <InputError :message="form.errors.status"/>
                             </div>
-                            <div class="flex flex-col">
-                                <div class="relative cursor-pointer" @mouseenter="isHovered = true" @mouseleave="isHovered = false">
-                                    <img
-                                        @click="fileInput.click()"
-                                        :alt="$page.props.auth.user.name"
-                                        :src="previewImage || default_image"
-                                        class="shadow-xl h-auto align-middle border-none absolute max-w-150-px"
-                                        style="max-width: 400px !important; height: 150px !important;"
-                                        title="Upload Photo"
-                                    />
-                                    <div
-                                        v-if="isHovered"
-                                        class="absolute flex items-center justify-center rounded-full"
-                                    >
-                                        <i class="fas fa-camera text-black text-2xl"></i>
+                            <div class="flex flex-col col-span-3">
+                                <label for="photo" class="text-stone-600 text-sm font-medium mb-2">Product Photo</label>
+                                <div class="flex gap-4 items-start">
+                                    <div class="relative cursor-pointer border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition" 
+                                         @mouseenter="isHovered = true" 
+                                         @mouseleave="isHovered = false"
+                                         @click="fileInput.click()">
+                                        <img
+                                            :alt="form.name || 'Product photo'"
+                                            :src="previewImage || default_image"
+                                            class="shadow-md h-auto align-middle border-none rounded-lg object-cover"
+                                            style="width: 200px; height: 150px;"
+                                            title="Click to upload photo"
+                                        />
+                                        <div
+                                            v-if="isHovered"
+                                            class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg"
+                                        >
+                                            <i class="fas fa-camera text-white text-3xl"></i>
+                                        </div>
+                                        <input type="file" class="hidden" accept="image/*" ref="fileInput" @change="handleFileChange" />
                                     </div>
-                                    <input type="file" class="hidden" accept="image/*" ref="fileInput" @change="handleFileChange" />
+                                    <div class="flex-1">
+                                        <p class="text-xs text-gray-500 mb-1">📷 Click image to upload</p>
+                                        <p class="text-xs text-gray-400">Max size: 1MB | Format: JPG, PNG, GIF, SVG</p>
+                                        <InputError :message="form.errors.photo" class="mt-1"/>
+                                    </div>
                                 </div>
-                                <InputError :message="form.errors.photo"/>
-                            </div>
-                            <div class="flex flex-col">
-                                <label for="description" class="text-stone-600 text-sm font-medium">Description</label>
-                                <textarea
-                                    id="description"
-                                    v-model="form.description"
-                                    type="text"
-                                    rows="3"
-                                    placeholder="Enter description"
-                                    class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
-                                ></textarea>
-                                <InputError :message="form.errors.description"/>
                             </div>
                             <div class="flex flex-col">
                                 <label for="bahan" class="text-stone-600 text-sm font-medium">Bahan</label>
@@ -257,7 +251,7 @@ const createProduct = () => {
                                     v-model="form.bahan"
                                     @keyup.enter="createProduct"
                                     type="text"
-                                    placeholder="Enter bahan"
+                                    placeholder="e.g. Art Paper, HVS, Duplex"
                                     class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
                                 />
                                 <InputError :message="form.errors.bahan"/>
@@ -269,82 +263,42 @@ const createProduct = () => {
                                     v-model="form.gramatur"
                                     @keyup.enter="createProduct"
                                     type="text"
-                                    placeholder="Enter gramatur"
+                                    placeholder="e.g. 210 gsm, 150 gsm"
                                     class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
                                 />
                                 <InputError :message="form.errors.gramatur"/>
                             </div>
-                            <div class="flex flex-col">
-                                <label for="ukuran" class="text-stone-600 text-sm font-medium">Ukuran</label>
-                                <input
-                                    id="ukuran"
-                                    v-model="form.ukuran"
-                                    @keyup.enter="createProduct"
-                                    type="text"
-                                    placeholder="Enter ukuran"
-                                    class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
+                            
+                            <!-- Dynamic Product Sizes Component -->
+                            <div class="col-span-3">
+                                <ProductSizeRepeater 
+                                    v-model="form.sizes"
+                                    :errors="form.errors"
                                 />
-                                <InputError :message="form.errors.ukuran"/>
                             </div>
                             <div class="flex flex-col">
-                                <label for="ukuran_potongan_1" class="text-stone-600 text-sm font-medium">Ukuran Potongan 1</label>
-                                <input
-                                    id="ukuran_potongan_1"
-                                    v-model="form.ukuran_potongan_1"
-                                    @keyup.enter="createProduct"
-                                    type="text"
-                                    placeholder="Enter ukuran potongan 1"
-                                    class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
-                                />
-                                <InputError :message="form.errors.ukuran_potongan_1"/>
-                            </div>
-                            <div class="flex flex-col">
-                                <label for="ukuran_plano_1" class="text-stone-600 text-sm font-medium">Ukuran Plano 1</label>
-                                <input
-                                    id="ukuran_plano_1"
-                                    v-model="form.ukuran_plano_1"
-                                    @keyup.enter="createProduct"
-                                    type="text"
-                                    placeholder="Enter ukuran plano 1"
-                                    class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
-                                />
-                                <InputError :message="form.errors.ukuran_plano_1"/>
-                            </div>
-                            <div class="flex flex-col">
-                                <label for="ukuran_potongan_2" class="text-stone-600 text-sm font-medium">Ukuran Potongan 2</label>
-                                <input
-                                    id="ukuran_potongan_2"
-                                    v-model="form.ukuran_potongan_2"
-                                    @keyup.enter="createProduct"
-                                    type="text"
-                                    placeholder="Enter ukuran potongan 2"
-                                    class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
-                                />
-                                <InputError :message="form.errors.ukuran_potongan_2"/>
-                            </div>
-                            <div class="flex flex-col">
-                                <label for="ukuran_plano_2" class="text-stone-600 text-sm font-medium">Ukuran Plano 2</label>
-                                <input
-                                    id="ukuran_plano_2"
-                                    v-model="form.ukuran_plano_2"
-                                    @keyup.enter="createProduct"
-                                    type="text"
-                                    placeholder="Enter ukuran plano 2"
-                                    class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
-                                />
-                                <InputError :message="form.errors.ukuran_plano_2"/>
-                            </div>
-                            <div class="flex flex-col">
-                                <label for="alamat_pengiriman" class="text-stone-600 text-sm font-medium">Alamat Pengiriman</label>
+                                <label for="alamat_pengiriman" class="text-stone-600 text-sm font-medium">Alamat Pengiriman (Optional)</label>
                                 <textarea
                                     id="alamat_pengiriman"
                                     v-model="form.alamat_pengiriman"
                                     type="text"
                                     rows="3"
-                                    placeholder="Enter alamat pengiriman"
+                                    placeholder="e.g. Jl. Sudirman No. 123, Jakarta Pusat&#10;(Opsional - jika berbeda dari alamat utama)"
                                     class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
                                 ></textarea>
                                 <InputError :message="form.errors.alamat_pengiriman"/>
+                            </div>
+                            <div class="flex flex-col">
+                                <label for="keterangan_tambahan" class="text-stone-600 text-sm font-medium">Keterangan Tambahan (Optional)</label>
+                                <textarea
+                                    id="keterangan_tambahan"
+                                    v-model="form.keterangan_tambahan"
+                                    type="text"
+                                    rows="3"
+                                    placeholder="e.g. Finishing: Laminating doff + spot UV&#10;Catatan: Gunakan tinta khusus untuk warna gold"
+                                    class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
+                                ></textarea>
+                                <InputError :message="form.errors.keterangan_tambahan"/>
                             </div>
                         </div>
                         <div class="my-6 flex justify-end">

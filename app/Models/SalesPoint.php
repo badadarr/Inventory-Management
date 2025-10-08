@@ -26,4 +26,9 @@ class SalesPoint extends Model
     {
         return $this->belongsTo(Order::class);
     }
+
+    public function productCategory(): BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'product_category_id');
+    }
 }

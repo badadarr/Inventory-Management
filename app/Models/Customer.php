@@ -16,12 +16,24 @@ class Customer extends Model
 
     protected $casts = [
         'harga_komisi_standar' => 'double',
-        'harga_komisi_ekstra' => 'double',
+        'harga_komisi_extra' => 'double',
+        'repeat_order_count' => 'integer',
+        'tanggal_join' => 'date',
     ];
 
     public function sales()
     {
         return $this->belongsTo(Sales::class);
+    }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    public function productCustomerPrices()
+    {
+        return $this->hasMany(ProductCustomerPrice::class);
     }
 
     protected function photo(): Attribute
@@ -32,5 +44,16 @@ class Customer extends Model
                 folderPath: self::PHOTO_PATH
             ),
         );
+    }
+
+    /**
+     * Increment repeat order count
+     */
+    public function incrementRepeatOrder()
+    {
+        $this->increment('repeat_order_count');
+        if ($this->repeat_order_count > 0 && $this->status_customer === 'baru') {
+            $this->update(['status_customer' => 'repeat']);
+        }
     }
 }

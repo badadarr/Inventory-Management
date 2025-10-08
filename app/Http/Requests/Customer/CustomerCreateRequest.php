@@ -26,7 +26,7 @@ class CustomerCreateRequest extends FormRequest
         return [
             "name"    => ["required", "string", "max:255"],
             "nama_box" => ["nullable", "string", "max:255"],
-            "nama_sales" => ["nullable", "string", "max:255"],
+            "sales_id" => ["nullable", "exists:sales,id"],
             "nama_owner" => ["nullable", "string", "max:255"],
             "email"   => [
                 "required",
@@ -36,12 +36,11 @@ class CustomerCreateRequest extends FormRequest
             ],
             "phone"   => ["required", "string", "max:255"],
             "address" => ["nullable", "string"],
-            "bulan_join" => ["nullable", "string", "max:255"],
-            "tahun_join" => ["nullable", "string", "max:255"],
-            "status_customer" => ["nullable", "string", "in:new,repeat"],
+            "tanggal_join" => ["nullable", "date"],
+            "status_customer" => ["nullable", "string", "in:baru,repeat"],
             "status_komisi" => ["nullable", "string", "max:255"],
-            "harga_komisi_standar" => ["nullable", "numeric"],
-            "harga_komisi_ekstra" => ["nullable", "numeric"],
+            "harga_komisi_standar" => ["nullable", "numeric", "min:0"],
+            "harga_komisi_extra" => ["nullable", "numeric", "min:0"],
             "photo"   => ["nullable", "file", "mimes:jpg,jpeg,png,gif,svg", "max:1024"],
         ];
     }

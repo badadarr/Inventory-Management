@@ -12,17 +12,16 @@ enum CustomerFieldsEnum: string implements BaseEnumInterface
     case ID         = 'id';
     case NAME       = 'name';
     case NAMA_BOX   = 'nama_box';
-    case NAMA_SALES = 'nama_sales';
+    case SALES_ID   = 'sales_id';
     case NAMA_OWNER = 'nama_owner';
     case EMAIL      = 'email';
     case PHONE      = 'phone';
     case ADDRESS    = 'address';
-    case BULAN_JOIN = 'bulan_join';
-    case TAHUN_JOIN = 'tahun_join';
+    case TANGGAL_JOIN = 'tanggal_join';
     case STATUS_CUSTOMER = 'status_customer';
     case STATUS_KOMISI = 'status_komisi';
     case HARGA_KOMISI_STANDAR = 'harga_komisi_standar';
-    case HARGA_KOMISI_EKSTRA = 'harga_komisi_ekstra';
+    case HARGA_KOMISI_EXTRA = 'harga_komisi_extra';
     case PHOTO      = 'photo';
     case CREATED_AT = 'created_at';
 
@@ -32,17 +31,16 @@ enum CustomerFieldsEnum: string implements BaseEnumInterface
             self::ID->value        => "Id",
             self::NAME->value      => "Name",
             self::NAMA_BOX->value  => "Nama Box",
-            self::NAMA_SALES->value => "Nama Sales",
+            self::SALES_ID->value  => "Sales Person",
             self::NAMA_OWNER->value => "Nama Owner",
             self::EMAIL->value     => "Email",
             self::PHONE->value     => "Phone",
             self::ADDRESS->value   => "Address",
-            self::BULAN_JOIN->value => "Bulan Join",
-            self::TAHUN_JOIN->value => "Tahun Join",
+            self::TANGGAL_JOIN->value => "Tanggal Join",
             self::STATUS_CUSTOMER->value => "Status Customer",
             self::STATUS_KOMISI->value => "Status Komisi",
             self::HARGA_KOMISI_STANDAR->value => "Harga Komisi Standar",
-            self::HARGA_KOMISI_EKSTRA->value => "Harga Komisi Ekstra",
+            self::HARGA_KOMISI_EXTRA->value => "Harga Komisi Extra",
             self::PHOTO->value     => "Photo",
         ];
     }

@@ -28,7 +28,7 @@
         >
             <Link
                 :href="route('profile.edit')"
-                class="text-sm py-2 px-4 font-normal block w-full whitespace-nowrap bg-transparent text-blueGray-700"
+                class="text-sm py-2 px-4 font-normal block w-full whitespace-nowrap bg-transparent text-blueGray-700 hover:bg-blueGray-100 text-left"
             >
                 Profile
             </Link>
@@ -36,7 +36,7 @@
                 :href="route('logout')"
                 method="post"
                 as="button"
-                class="text-sm py-2 px-4 font-normal block w-full whitespace-nowrap bg-transparent text-blueGray-700"
+                class="text-sm py-2 px-4 font-normal block w-full whitespace-nowrap bg-transparent text-blueGray-700 hover:bg-blueGray-100 text-left"
             >
                 Logout
             </Link>

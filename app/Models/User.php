@@ -22,9 +22,11 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'company_name',
+        'company_id',
         'email',
         'password',
-        'photo'
+        'photo',
+        'role'
     ];
 
     /**
@@ -56,5 +58,45 @@ class User extends Authenticatable
                 folderPath: self::PHOTO_PATH
             ),
         );
+    }
+
+    /**
+     * Check if user has specific role
+     */
+    public function hasRole(string $role): bool
+    {
+        return $this->role === $role;
+    }
+
+    /**
+     * Check if user is admin
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    /**
+     * Check if user is sales
+     */
+    public function isSales(): bool
+    {
+        return $this->role === 'sales';
+    }
+
+    /**
+     * Check if user is finance
+     */
+    public function isFinance(): bool
+    {
+        return $this->role === 'finance';
+    }
+
+    /**
+     * Check if user is warehouse
+     */
+    public function isWarehouse(): bool
+    {
+        return $this->role === 'warehouse';
     }
 }

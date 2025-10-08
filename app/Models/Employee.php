@@ -14,10 +14,12 @@ class Employee extends Model
     protected $guarded = ['id'];
 
     protected $casts = [
-        "salary" => "double"
+        "salary" => "double",
+        "joining_date" => "date",
     ];
 
     const PHOTO_PATH = "employees";
+    
     protected function photo(): Attribute
     {
         return Attribute::make(
@@ -26,5 +28,15 @@ class Employee extends Model
                 folderPath: self::PHOTO_PATH
             ),
         );
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function sales()
+    {
+        return $this->hasOne(Sales::class);
     }
 }

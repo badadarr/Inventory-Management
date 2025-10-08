@@ -41,28 +41,51 @@ class ProductUpdateRequest extends FormRequest
                 Rule::exists((new Supplier())->getTable(), 'id')
             ],
             ProductFieldsEnum::NAME->value          => ["required", "string", "max:255"],
-            ProductFieldsEnum::DESCRIPTION->value   => ["nullable", "string"],
             ProductFieldsEnum::BAHAN->value         => ["nullable", "string", "max:255"],
             ProductFieldsEnum::GRAMATUR->value      => ["nullable", "string", "max:255"],
-            ProductFieldsEnum::UKURAN->value        => ["nullable", "string", "max:255"],
-            ProductFieldsEnum::UKURAN_POTONGAN_1->value => ["nullable", "string", "max:255"],
-            ProductFieldsEnum::UKURAN_PLANO_1->value => ["nullable", "string", "max:255"],
-            ProductFieldsEnum::UKURAN_POTONGAN_2->value => ["nullable", "string", "max:255"],
-            ProductFieldsEnum::UKURAN_PLANO_2->value => ["nullable", "string", "max:255"],
             ProductFieldsEnum::ALAMAT_PENGIRIMAN->value => ["nullable", "string"],
             ProductFieldsEnum::PRODUCT_CODE->value  => ["nullable", "string", "max:255"],
-            ProductFieldsEnum::ROOT->value          => ["nullable", "string", "max:255"],
             ProductFieldsEnum::BUYING_PRICE->value  => ["required", "numeric"],
             ProductFieldsEnum::SELLING_PRICE->value => ["required", "numeric", "gt:0"],
-            ProductFieldsEnum::BUYING_DATE->value   => ["nullable", "date"],
             ProductFieldsEnum::UNIT_TYPE_ID->value  => [
                 "required",
                 "integer",
                 Rule::exists((new UnitType())->getTable(), 'id')
             ],
             ProductFieldsEnum::QUANTITY->value      => ["required", "numeric", "gte:0"],
+            ProductFieldsEnum::REORDER_LEVEL->value => ["nullable", "numeric", "gte:0"],
+            ProductFieldsEnum::KETERANGAN_TAMBAHAN->value => ["nullable", "string"],
             ProductFieldsEnum::PHOTO->value         => ["nullable", "file", "mimes:jpg,jpeg,png,gif,svg", "max:1024"],
             ProductFieldsEnum::STATUS->value        => ["required", "string", Rule::in(ProductStatusEnum::values())],
+            
+            // Product sizes validation (dynamic array)
+            'sizes'                    => ["nullable", "array", "min:1"],
+            'sizes.*.size_name'        => ["nullable", "string", "max:100"],
+            'sizes.*.ukuran_potongan'  => ["required", "string", "max:100"],
+            'sizes.*.ukuran_plano'     => ["nullable", "string", "max:100"],
+            'sizes.*.width'            => ["nullable", "numeric", "gte:0"],
+            'sizes.*.height'           => ["nullable", "numeric", "gte:0"],
+            'sizes.*.plano_width'      => ["nullable", "numeric", "gte:0"],
+            'sizes.*.plano_height'     => ["nullable", "numeric", "gte:0"],
+            'sizes.*.notes'            => ["nullable", "string"],
+            'sizes.*.is_default'       => ["nullable", "boolean"],
+            'sizes.*.sort_order'       => ["nullable", "integer", "gte:0"],
+        ];
+    }
+    
+    /**
+     * Get custom messages for validator errors.
+     */
+    public function messages(): array
+    {
+        return [
+            'sizes.*.ukuran_potongan.required' => 'Ukuran potongan wajib diisi untuk setiap size.',
+            'sizes.*.ukuran_potongan.max'      => 'Ukuran potongan maksimal 100 karakter.',
+            'sizes.*.width.numeric'            => 'Lebar harus berupa angka.',
+            'sizes.*.height.numeric'           => 'Tinggi harus berupa angka.',
+            'sizes.*.plano_width.numeric'      => 'Lebar plano harus berupa angka.',
+            'sizes.*.plano_height.numeric'     => 'Tinggi plano harus berupa angka.',
+            'sizes.min'                        => 'Minimal harus ada 1 ukuran produk.',
         ];
     }
 }

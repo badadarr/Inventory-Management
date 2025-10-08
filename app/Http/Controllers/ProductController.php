@@ -183,6 +183,9 @@ class ProductController extends Controller
 
     public function edit(Product $product): Response|RedirectResponse
     {
+        // Load sizes relationship
+        $product->load('sizes');
+        
         return Inertia::render(
             component: 'Product/Edit',
             props: [
@@ -250,5 +253,19 @@ class ProductController extends Controller
         return redirect()
             ->route('products.index')
             ->with('flash', $flash);
+    }
+
+    /**
+     * Get products that need reordering (Inventory v2)
+     */
+    public function lowStock()
+    {
+        $lowStockProducts = $this->service->getLowStockProducts();
+
+        return response()->json([
+            'success' => true,
+            'data' => $lowStockProducts,
+            'count' => $lowStockProducts->count(),
+        ]);
     }
 }

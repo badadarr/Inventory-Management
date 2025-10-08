@@ -14,6 +14,7 @@ class Transaction extends Model
 
     protected $casts = [
         "amount" => "double",
+        "transaction_date" => "date",
     ];
 
     public function order(): BelongsTo

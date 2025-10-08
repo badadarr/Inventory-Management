@@ -25,9 +25,19 @@ class Sales extends Model
         );
     }
 
+    public function employee()
+    {
+        return $this->belongsTo(Employee::class);
+    }
+
     public function customers(): HasMany
     {
         return $this->hasMany(Customer::class);
+    }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
     }
 
     public function salesPoints(): HasMany

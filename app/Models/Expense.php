@@ -13,5 +13,6 @@ class Expense extends Model
 
     protected $casts = [
         "amount" => "double",
+        "expense_date" => "date",
     ];
 }

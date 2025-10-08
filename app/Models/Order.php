@@ -21,8 +21,6 @@ class Order extends Model
         "total"          => "double",
         "paid"           => "double",
         "due"            => "double",
-        "profit"         => "double",
-        "loss"           => "double",
         "tanggal_po"     => "date",
         "tanggal_kirim"  => "date",
         "volume"         => "integer",
@@ -35,9 +33,24 @@ class Order extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    public function sales(): BelongsTo
+    {
+        return $this->belongsTo(Sales::class);
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class);
     }
 
     public function salesPoints(): HasMany
@@ -48,5 +61,21 @@ class Order extends Model
     public function getTotalOutstandingAttribute()
     {
         return $this->total + ($this->charge ?? 0) - $this->paid;
+    }
+
+    /**
+     * Check if order is paid
+     */
+    public function isPaid(): bool
+    {
+        return $this->paid >= $this->total;
+    }
+
+    /**
+     * Check if order is partially paid
+     */
+    public function isPartiallyPaid(): bool
+    {
+        return $this->paid > 0 && $this->paid < $this->total;
     }
 }

@@ -9,12 +9,15 @@ use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductCustomerPriceController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SalaryController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\SalesPointController;
 use App\Http\Controllers\SettingController;
+use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UnitTypeController;
@@ -59,6 +62,7 @@ Route::middleware('auth')->group(function () {
     Route::apiResource('unit-types', UnitTypeController::class);
     Route::apiResource('suppliers', SupplierController::class);
     Route::resource('products', ProductController::class);
+    Route::get('products/low-stock/alert', [ProductController::class, 'lowStock'])->name('products.low-stock');
     Route::apiResource('expenses', ExpenseController::class);
     Route::resource('customers', CustomerController::class);
     Route::apiResource('employees', EmployeeController::class);
@@ -94,6 +98,20 @@ Route::middleware('auth')->group(function () {
     // Reports
     Route::get('reports/outstanding', [ReportController::class, 'outstanding'])->name('reports.outstanding');
     Route::get('reports/top-customers', [ReportController::class, 'topCustomers'])->name('reports.top-customers');
+
+    // Purchase Orders (Inventory v2)
+    Route::resource('purchase-orders', PurchaseOrderController::class);
+    Route::post('purchase-orders/{id}/receive', [PurchaseOrderController::class, 'receive'])->name('purchase-orders.receive');
+
+    // Product Customer Prices (Inventory v2)
+    Route::get('product-customer-prices/product/{productId}', [ProductCustomerPriceController::class, 'byProduct'])->name('product-customer-prices.by-product');
+    Route::get('product-customer-prices/customer/{customerId}', [ProductCustomerPriceController::class, 'byCustomer'])->name('product-customer-prices.by-customer');
+    Route::post('product-customer-prices', [ProductCustomerPriceController::class, 'upsert'])->name('product-customer-prices.upsert');
+    Route::delete('product-customer-prices/{productId}/{customerId}', [ProductCustomerPriceController::class, 'destroy'])->name('product-customer-prices.destroy');
+
+    // Stock Movements (Inventory v2 - Read only)
+    Route::get('stock-movements', [StockMovementController::class, 'index'])->name('stock-movements.index');
+    Route::get('stock-movements/product/{productId}', [StockMovementController::class, 'byProduct'])->name('stock-movements.by-product');
 });
 
 require __DIR__ . '/auth.php';

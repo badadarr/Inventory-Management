@@ -40,22 +40,20 @@ class ProductSeeder extends Seeder
                     Storage::put($imagePath, $imageContent);
 
                     $productsPayload[] = [
-                        ProductFieldsEnum::CATEGORY_ID->value    => $category->id,
-                        ProductFieldsEnum::SUPPLIER_ID->value    => $suppliers->random()->id,
-                        ProductFieldsEnum::NAME->value           => $product->title,
-                        ProductFieldsEnum::PRODUCT_NUMBER->value => 'P-' . Str::random(5),
-                        ProductFieldsEnum::DESCRIPTION->value    => $product->description,
-                        ProductFieldsEnum::PRODUCT_CODE->value   => Str::random(3),
-                        ProductFieldsEnum::ROOT->value           => Str::random(3),
-                        ProductFieldsEnum::BUYING_PRICE->value   => $product->price,
-                        ProductFieldsEnum::SELLING_PRICE->value  => $product->price + rand(10, 100),
-                        ProductFieldsEnum::BUYING_DATE->value    => fake()->date,
-                        ProductFieldsEnum::UNIT_TYPE_ID->value   => $unitTypes->random()->id,
-                        ProductFieldsEnum::QUANTITY->value       => $product->stock,
-                        ProductFieldsEnum::PHOTO->value          => $imageName,
-                        ProductFieldsEnum::STATUS->value         => ProductStatusEnum::ACTIVE->value,
-                        ProductFieldsEnum::CREATED_AT->value     => now(),
-                        "updated_at"                             => now(),
+                        ProductFieldsEnum::CATEGORY_ID->value          => $category->id,
+                        ProductFieldsEnum::SUPPLIER_ID->value          => $suppliers->random()->id,
+                        ProductFieldsEnum::UNIT_TYPE_ID->value         => $unitTypes->random()->id,
+                        ProductFieldsEnum::PRODUCT_CODE->value         => 'PRD-' . strtoupper(Str::random(6)),
+                        ProductFieldsEnum::NAME->value                 => $product->title,
+                        ProductFieldsEnum::BUYING_PRICE->value         => $product->price,
+                        ProductFieldsEnum::SELLING_PRICE->value        => $product->price + rand(10, 100),
+                        ProductFieldsEnum::QUANTITY->value             => $product->stock,
+                        ProductFieldsEnum::REORDER_LEVEL->value        => max(10, $product->stock * 0.2), // 20% of stock
+                        ProductFieldsEnum::PHOTO->value                => $imageName,
+                        ProductFieldsEnum::STATUS->value               => ProductStatusEnum::ACTIVE->value,
+                        ProductFieldsEnum::KETERANGAN_TAMBAHAN->value  => $product->description,
+                        ProductFieldsEnum::CREATED_AT->value           => now(),
+                        "updated_at"                                   => now(),
                     ];
                 }
 

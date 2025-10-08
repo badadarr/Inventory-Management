@@ -19,10 +19,18 @@ class DatabaseSeeder extends Seeder
         //     'email' => 'test@example.com',
         // ]);
         $this->call([
+            // Core seeders - Must run first
+            UserSeeder::class,
             SupplierSeeder::class,
+            CustomerSeeder::class,
             CategorySeeder::class,
             UnitTypeSeeder::class,
             ProductSeeder::class,
+            
+            // Inventory v2 seeders - Depend on core data
+            PurchaseOrderSeeder::class,
+            ProductCustomerPriceSeeder::class,
+            StockMovementSeeder::class,
         ]);
     }
 }

@@ -33,10 +33,16 @@ class CustomerController extends Controller
             return $this->service->getAll($query);
         }
 
+        $queryParams = $request->validated();
+        $queryParams['expand'] = ['sales']; // Eager load sales relationship
+
         return Inertia::render(
             component: 'Customer/Index',
             props: [
-                'customers' => $this->service->getAll($request->validated()),
+                'customers' => $this->service->getAll($queryParams),
+                'salesList' => \App\Models\Sales::where('status', 'active')
+                    ->orderBy('name')
+                    ->get(['id', 'name']),
                 'filters'   => [
                     CustomerFiltersEnum::NAME->value       => [
                         'label'       => CustomerFiltersEnum::NAME->label(),
@@ -80,6 +86,18 @@ class CustomerController extends Controller
             ]);
     }
 
+    public function create(): Response
+    {
+        return Inertia::render(
+            component: 'Customer/Create',
+            props: [
+                'salesList' => \App\Models\Sales::where('status', 'active')
+                    ->orderBy('name')
+                    ->get(['id', 'name']),
+            ]
+        );
+    }
+
     public function store(CustomerCreateRequest $request): RedirectResponse
     {
         try {
@@ -104,6 +122,30 @@ class CustomerController extends Controller
         return redirect()
             ->route('customers.index')
             ->with('flash', $flash);
+    }
+
+    public function edit($id): Response|RedirectResponse
+    {
+        try {
+            $customer = $this->service->findByIdOrFail($id, ['sales']);
+            
+            return Inertia::render(
+                component: 'Customer/Edit',
+                props: [
+                    'customer' => $customer,
+                    'salesList' => \App\Models\Sales::where('status', 'active')
+                        ->orderBy('name')
+                        ->get(['id', 'name']),
+                ]
+            );
+        } catch (CustomerNotFoundException $e) {
+            return redirect()
+                ->route('customers.index')
+                ->with('flash', [
+                    'isSuccess' => false,
+                    'message' => $e->getMessage()
+                ]);
+        }
     }
 
     public function update(CustomerUpdateRequest $request, $id): RedirectResponse

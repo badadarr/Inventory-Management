@@ -10,9 +10,11 @@ use App\Exceptions\ProductNotFoundException;
 use App\Helpers\ArrayHelper;
 use App\Helpers\BaseHelper;
 use App\Models\Product;
+use App\Models\ProductSize;
 use App\Repositories\ProductRepository;
 use Exception;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class ProductService
@@ -52,6 +54,11 @@ class ProductService
      */
     public function findByIdOrFail(int $id, array $expands = []): ?Product
     {
+        // Always include sizes in the query
+        if (!in_array('sizes', $expands)) {
+            $expands[] = 'sizes';
+        }
+
         $product = $this->repository->find([
             ProductFiltersEnum::ID->value => $id
         ], $expands);
@@ -70,37 +77,63 @@ class ProductService
      */
     public function create(array $payload): mixed
     {
-        $photo = $this->fileManagerService->uploadFile(
-            file: $payload['photo'],
-            uploadPath: Product::PHOTO_PATH
-        );
+        return DB::transaction(function () use ($payload) {
+            $photo = $this->fileManagerService->uploadFile(
+                file: $payload['photo'],
+                uploadPath: Product::PHOTO_PATH
+            );
 
-        $processPayload = [
-            ProductFieldsEnum::CATEGORY_ID->value    => $payload[ProductFieldsEnum::CATEGORY_ID->value],
-            ProductFieldsEnum::SUPPLIER_ID->value    => $payload[ProductFieldsEnum::SUPPLIER_ID->value],
-            ProductFieldsEnum::NAME->value           => $payload[ProductFieldsEnum::NAME->value],
-            ProductFieldsEnum::DESCRIPTION->value    => $payload[ProductFieldsEnum::DESCRIPTION->value],
-            ProductFieldsEnum::BAHAN->value          => $payload[ProductFieldsEnum::BAHAN->value] ?? null,
-            ProductFieldsEnum::GRAMATUR->value       => $payload[ProductFieldsEnum::GRAMATUR->value] ?? null,
-            ProductFieldsEnum::UKURAN->value         => $payload[ProductFieldsEnum::UKURAN->value] ?? null,
-            ProductFieldsEnum::UKURAN_POTONGAN_1->value => $payload[ProductFieldsEnum::UKURAN_POTONGAN_1->value] ?? null,
-            ProductFieldsEnum::UKURAN_PLANO_1->value => $payload[ProductFieldsEnum::UKURAN_PLANO_1->value] ?? null,
-            ProductFieldsEnum::UKURAN_POTONGAN_2->value => $payload[ProductFieldsEnum::UKURAN_POTONGAN_2->value] ?? null,
-            ProductFieldsEnum::UKURAN_PLANO_2->value => $payload[ProductFieldsEnum::UKURAN_PLANO_2->value] ?? null,
-            ProductFieldsEnum::ALAMAT_PENGIRIMAN->value => $payload[ProductFieldsEnum::ALAMAT_PENGIRIMAN->value] ?? null,
-            ProductFieldsEnum::PRODUCT_NUMBER->value => 'P-' . Str::random(5),
-            ProductFieldsEnum::PRODUCT_CODE->value   => $payload[ProductFieldsEnum::PRODUCT_CODE->value],
-            ProductFieldsEnum::ROOT->value           => $payload[ProductFieldsEnum::ROOT->value],
-            ProductFieldsEnum::BUYING_PRICE->value   => $payload[ProductFieldsEnum::BUYING_PRICE->value],
-            ProductFieldsEnum::SELLING_PRICE->value  => $payload[ProductFieldsEnum::SELLING_PRICE->value],
-            ProductFieldsEnum::BUYING_DATE->value    => $payload[ProductFieldsEnum::BUYING_DATE->value],
-            ProductFieldsEnum::UNIT_TYPE_ID->value   => $payload[ProductFieldsEnum::UNIT_TYPE_ID->value],
-            ProductFieldsEnum::QUANTITY->value       => $payload[ProductFieldsEnum::QUANTITY->value],
-            ProductFieldsEnum::PHOTO->value          => $photo,
-            ProductFieldsEnum::STATUS->value         => $payload[ProductFieldsEnum::STATUS->value],
-        ];
+            $processPayload = [
+                ProductFieldsEnum::CATEGORY_ID->value    => $payload[ProductFieldsEnum::CATEGORY_ID->value],
+                ProductFieldsEnum::SUPPLIER_ID->value    => $payload[ProductFieldsEnum::SUPPLIER_ID->value] ?? null,
+                ProductFieldsEnum::NAME->value           => $payload[ProductFieldsEnum::NAME->value],
+                ProductFieldsEnum::BAHAN->value          => $payload[ProductFieldsEnum::BAHAN->value] ?? null,
+                ProductFieldsEnum::GRAMATUR->value       => $payload[ProductFieldsEnum::GRAMATUR->value] ?? null,
+                ProductFieldsEnum::ALAMAT_PENGIRIMAN->value => $payload[ProductFieldsEnum::ALAMAT_PENGIRIMAN->value] ?? null,
+                ProductFieldsEnum::PRODUCT_CODE->value   => $payload[ProductFieldsEnum::PRODUCT_CODE->value] ?? null,
+                ProductFieldsEnum::BUYING_PRICE->value   => $payload[ProductFieldsEnum::BUYING_PRICE->value],
+                ProductFieldsEnum::SELLING_PRICE->value  => $payload[ProductFieldsEnum::SELLING_PRICE->value],
+                ProductFieldsEnum::UNIT_TYPE_ID->value   => $payload[ProductFieldsEnum::UNIT_TYPE_ID->value],
+                ProductFieldsEnum::QUANTITY->value       => $payload[ProductFieldsEnum::QUANTITY->value],
+                ProductFieldsEnum::REORDER_LEVEL->value  => $payload[ProductFieldsEnum::REORDER_LEVEL->value] ?? null,
+                ProductFieldsEnum::KETERANGAN_TAMBAHAN->value => $payload[ProductFieldsEnum::KETERANGAN_TAMBAHAN->value] ?? null,
+                ProductFieldsEnum::PHOTO->value          => $photo,
+                ProductFieldsEnum::STATUS->value         => $payload[ProductFieldsEnum::STATUS->value],
+            ];
 
-        return $this->repository->create($processPayload);
+            $product = $this->repository->create($processPayload);
+
+            // Handle product sizes
+            if (isset($payload['sizes']) && is_array($payload['sizes'])) {
+                foreach ($payload['sizes'] as $index => $sizeData) {
+                    $sizePayload = [
+                        'product_id' => $product->id,
+                        'size_name' => $sizeData['size_name'] ?? null,
+                        'ukuran_potongan' => $sizeData['ukuran_potongan'],
+                        'ukuran_plano' => $sizeData['ukuran_plano'] ?? null,
+                        'width' => $sizeData['width'] ?? null,
+                        'height' => $sizeData['height'] ?? null,
+                        'plano_width' => $sizeData['plano_width'] ?? null,
+                        'plano_height' => $sizeData['plano_height'] ?? null,
+                        'notes' => $sizeData['notes'] ?? null,
+                        'is_default' => $sizeData['is_default'] ?? ($index === 0), // First size is default if not specified
+                        'sort_order' => $sizeData['sort_order'] ?? $index,
+                    ];
+
+                    // Auto-calculate quantity_per_plano if dimensions are provided
+                    if (isset($sizePayload['width'], $sizePayload['height'], $sizePayload['plano_width'], $sizePayload['plano_height'])) {
+                        $size = new ProductSize($sizePayload);
+                        $sizePayload['quantity_per_plano'] = $size->calculateQuantityPerPlano();
+                        $sizePayload['waste_percentage'] = $size->calculateEfficiency() ? (100 - $size->calculateEfficiency()) : null;
+                    }
+
+                    ProductSize::create($sizePayload);
+                }
+            }
+
+            // Load sizes relationship before returning
+            return $product->load('sizes');
+        });
     }
 
     /**
@@ -112,42 +145,73 @@ class ProductService
      */
     public function update(int $id, array $payload): Product
     {
-        $product = $this->findByIdOrFail($id);
+        return DB::transaction(function () use ($id, $payload) {
+            $product = $this->findByIdOrFail($id);
 
-        $photo = $product->getRawOriginal(ProductFieldsEnum::PHOTO->value);
-        if (isset($payload['photo'])) {
-            $photo = $this->fileManagerService->uploadFile(
-                file: $payload['photo'],
-                uploadPath: Product::PHOTO_PATH,
-                deleteFileName: $photo
-            );
-        }
+            $photo = $product->getRawOriginal(ProductFieldsEnum::PHOTO->value);
+            if (isset($payload['photo'])) {
+                $photo = $this->fileManagerService->uploadFile(
+                    file: $payload['photo'],
+                    uploadPath: Product::PHOTO_PATH,
+                    deleteFileName: $photo
+                );
+            }
 
-        $processPayload = [
-            ProductFieldsEnum::CATEGORY_ID->value   => $payload[ProductFieldsEnum::CATEGORY_ID->value] ?? $product->category_id,
-            ProductFieldsEnum::SUPPLIER_ID->value   => $payload[ProductFieldsEnum::SUPPLIER_ID->value] ?? $product->supplier_id,
-            ProductFieldsEnum::NAME->value          => $payload[ProductFieldsEnum::NAME->value] ?? $product->name,
-            ProductFieldsEnum::DESCRIPTION->value   => $payload[ProductFieldsEnum::DESCRIPTION->value] ?? $product->description,
-            ProductFieldsEnum::BAHAN->value         => $payload[ProductFieldsEnum::BAHAN->value] ?? $product->bahan,
-            ProductFieldsEnum::GRAMATUR->value      => $payload[ProductFieldsEnum::GRAMATUR->value] ?? $product->gramatur,
-            ProductFieldsEnum::UKURAN->value        => $payload[ProductFieldsEnum::UKURAN->value] ?? $product->ukuran,
-            ProductFieldsEnum::UKURAN_POTONGAN_1->value => $payload[ProductFieldsEnum::UKURAN_POTONGAN_1->value] ?? $product->ukuran_potongan_1,
-            ProductFieldsEnum::UKURAN_PLANO_1->value => $payload[ProductFieldsEnum::UKURAN_PLANO_1->value] ?? $product->ukuran_plano_1,
-            ProductFieldsEnum::UKURAN_POTONGAN_2->value => $payload[ProductFieldsEnum::UKURAN_POTONGAN_2->value] ?? $product->ukuran_potongan_2,
-            ProductFieldsEnum::UKURAN_PLANO_2->value => $payload[ProductFieldsEnum::UKURAN_PLANO_2->value] ?? $product->ukuran_plano_2,
-            ProductFieldsEnum::ALAMAT_PENGIRIMAN->value => $payload[ProductFieldsEnum::ALAMAT_PENGIRIMAN->value] ?? $product->alamat_pengiriman,
-            ProductFieldsEnum::PRODUCT_CODE->value  => $payload[ProductFieldsEnum::PRODUCT_CODE->value] ?? $product->product_code,
-            ProductFieldsEnum::ROOT->value          => $payload[ProductFieldsEnum::ROOT->value] ?? $product->root,
-            ProductFieldsEnum::BUYING_PRICE->value  => $payload[ProductFieldsEnum::BUYING_PRICE->value] ?? $product->buying_price,
-            ProductFieldsEnum::SELLING_PRICE->value => $payload[ProductFieldsEnum::SELLING_PRICE->value] ?? $product->selling_price,
-            ProductFieldsEnum::BUYING_DATE->value   => $payload[ProductFieldsEnum::BUYING_DATE->value] ?? $product->buying_date,
-            ProductFieldsEnum::UNIT_TYPE_ID->value  => $payload[ProductFieldsEnum::UNIT_TYPE_ID->value] ?? $product->unit_type_id,
-            ProductFieldsEnum::QUANTITY->value      => $payload[ProductFieldsEnum::QUANTITY->value] ?? $product->quantity,
-            ProductFieldsEnum::PHOTO->value         => $photo,
-            ProductFieldsEnum::STATUS->value        => $payload[ProductFieldsEnum::STATUS->value] ?? $product->status,
-        ];
+            $processPayload = [
+                ProductFieldsEnum::CATEGORY_ID->value   => $payload[ProductFieldsEnum::CATEGORY_ID->value] ?? $product->category_id,
+                ProductFieldsEnum::SUPPLIER_ID->value   => $payload[ProductFieldsEnum::SUPPLIER_ID->value] ?? $product->supplier_id,
+                ProductFieldsEnum::NAME->value          => $payload[ProductFieldsEnum::NAME->value] ?? $product->name,
+                ProductFieldsEnum::BAHAN->value         => $payload[ProductFieldsEnum::BAHAN->value] ?? $product->bahan,
+                ProductFieldsEnum::GRAMATUR->value      => $payload[ProductFieldsEnum::GRAMATUR->value] ?? $product->gramatur,
+                ProductFieldsEnum::ALAMAT_PENGIRIMAN->value => $payload[ProductFieldsEnum::ALAMAT_PENGIRIMAN->value] ?? $product->alamat_pengiriman,
+                ProductFieldsEnum::PRODUCT_CODE->value  => $payload[ProductFieldsEnum::PRODUCT_CODE->value] ?? $product->product_code,
+                ProductFieldsEnum::BUYING_PRICE->value  => $payload[ProductFieldsEnum::BUYING_PRICE->value] ?? $product->buying_price,
+                ProductFieldsEnum::SELLING_PRICE->value => $payload[ProductFieldsEnum::SELLING_PRICE->value] ?? $product->selling_price,
+                ProductFieldsEnum::UNIT_TYPE_ID->value  => $payload[ProductFieldsEnum::UNIT_TYPE_ID->value] ?? $product->unit_type_id,
+                ProductFieldsEnum::QUANTITY->value      => $payload[ProductFieldsEnum::QUANTITY->value] ?? $product->quantity,
+                ProductFieldsEnum::REORDER_LEVEL->value => $payload[ProductFieldsEnum::REORDER_LEVEL->value] ?? $product->reorder_level,
+                ProductFieldsEnum::KETERANGAN_TAMBAHAN->value => $payload[ProductFieldsEnum::KETERANGAN_TAMBAHAN->value] ?? $product->keterangan_tambahan,
+                ProductFieldsEnum::PHOTO->value         => $photo,
+                ProductFieldsEnum::STATUS->value        => $payload[ProductFieldsEnum::STATUS->value] ?? $product->status,
+            ];
 
-        return $this->repository->update($product, $processPayload);
+            $updatedProduct = $this->repository->update($product, $processPayload);
+
+            // Handle product sizes update
+            if (isset($payload['sizes']) && is_array($payload['sizes'])) {
+                // Delete existing sizes
+                $product->sizes()->delete();
+
+                // Create new sizes
+                foreach ($payload['sizes'] as $index => $sizeData) {
+                    $sizePayload = [
+                        'product_id' => $product->id,
+                        'size_name' => $sizeData['size_name'] ?? null,
+                        'ukuran_potongan' => $sizeData['ukuran_potongan'],
+                        'ukuran_plano' => $sizeData['ukuran_plano'] ?? null,
+                        'width' => $sizeData['width'] ?? null,
+                        'height' => $sizeData['height'] ?? null,
+                        'plano_width' => $sizeData['plano_width'] ?? null,
+                        'plano_height' => $sizeData['plano_height'] ?? null,
+                        'notes' => $sizeData['notes'] ?? null,
+                        'is_default' => $sizeData['is_default'] ?? ($index === 0),
+                        'sort_order' => $sizeData['sort_order'] ?? $index,
+                    ];
+
+                    // Auto-calculate quantity_per_plano if dimensions are provided
+                    if (isset($sizePayload['width'], $sizePayload['height'], $sizePayload['plano_width'], $sizePayload['plano_height'])) {
+                        $size = new ProductSize($sizePayload);
+                        $sizePayload['quantity_per_plano'] = $size->calculateQuantityPerPlano();
+                        $sizePayload['waste_percentage'] = $size->calculateEfficiency() ? (100 - $size->calculateEfficiency()) : null;
+                    }
+
+                    ProductSize::create($sizePayload);
+                }
+            }
+
+            // Load sizes relationship before returning
+            return $updatedProduct->load('sizes');
+        });
     }
 
     /**
@@ -169,5 +233,25 @@ class ProductService
         // Todo: prevent delete for available orders
 
         return $this->repository->delete($product);
+    }
+
+    /**
+     * Get products with low stock (need reordering) - Inventory v2
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getLowStockProducts()
+    {
+        return Product::whereColumn('quantity', '<=', 'reorder_level')
+            ->with(['category', 'supplier', 'unitType'])
+            ->get();
+    }
+
+    /**
+     * Get products needing reorder for dashboard alert - Inventory v2
+     * @return int
+     */
+    public function getLowStockCount(): int
+    {
+        return Product::whereColumn('quantity', '<=', 'reorder_level')->count();
     }
 }

@@ -80,17 +80,16 @@ class CustomerService
         $processPayload = [
             CustomerFieldsEnum::NAME->value    => $payload[CustomerFieldsEnum::NAME->value],
             CustomerFieldsEnum::NAMA_BOX->value => $payload[CustomerFieldsEnum::NAMA_BOX->value] ?? null,
-            CustomerFieldsEnum::NAMA_SALES->value => $payload[CustomerFieldsEnum::NAMA_SALES->value] ?? null,
+            CustomerFieldsEnum::SALES_ID->value => $payload[CustomerFieldsEnum::SALES_ID->value] ?? null,
             CustomerFieldsEnum::NAMA_OWNER->value => $payload[CustomerFieldsEnum::NAMA_OWNER->value] ?? null,
             CustomerFieldsEnum::EMAIL->value   => $payload[CustomerFieldsEnum::EMAIL->value],
             CustomerFieldsEnum::PHONE->value   => $payload[CustomerFieldsEnum::PHONE->value],
             CustomerFieldsEnum::ADDRESS->value => $payload[CustomerFieldsEnum::ADDRESS->value],
-            CustomerFieldsEnum::BULAN_JOIN->value => $payload[CustomerFieldsEnum::BULAN_JOIN->value] ?? null,
-            CustomerFieldsEnum::TAHUN_JOIN->value => $payload[CustomerFieldsEnum::TAHUN_JOIN->value] ?? null,
-            CustomerFieldsEnum::STATUS_CUSTOMER->value => $payload[CustomerFieldsEnum::STATUS_CUSTOMER->value] ?? 'new',
+            CustomerFieldsEnum::TANGGAL_JOIN->value => $payload[CustomerFieldsEnum::TANGGAL_JOIN->value] ?? null,
+            CustomerFieldsEnum::STATUS_CUSTOMER->value => $payload[CustomerFieldsEnum::STATUS_CUSTOMER->value] ?? 'baru',
             CustomerFieldsEnum::STATUS_KOMISI->value => $payload[CustomerFieldsEnum::STATUS_KOMISI->value] ?? null,
             CustomerFieldsEnum::HARGA_KOMISI_STANDAR->value => $payload[CustomerFieldsEnum::HARGA_KOMISI_STANDAR->value] ?? null,
-            CustomerFieldsEnum::HARGA_KOMISI_EKSTRA->value => $payload[CustomerFieldsEnum::HARGA_KOMISI_EKSTRA->value] ?? null,
+            CustomerFieldsEnum::HARGA_KOMISI_EXTRA->value => $payload[CustomerFieldsEnum::HARGA_KOMISI_EXTRA->value] ?? null,
             CustomerFieldsEnum::PHOTO->value   => $photo,
         ];
 
@@ -120,17 +119,16 @@ class CustomerService
         $processPayload = [
             CustomerFieldsEnum::NAME->value    => $payload[CustomerFieldsEnum::NAME->value] ?? $customer->name,
             CustomerFieldsEnum::NAMA_BOX->value => $payload[CustomerFieldsEnum::NAMA_BOX->value] ?? $customer->nama_box,
-            CustomerFieldsEnum::NAMA_SALES->value => $payload[CustomerFieldsEnum::NAMA_SALES->value] ?? $customer->nama_sales,
+            CustomerFieldsEnum::SALES_ID->value => $payload[CustomerFieldsEnum::SALES_ID->value] ?? $customer->sales_id,
             CustomerFieldsEnum::NAMA_OWNER->value => $payload[CustomerFieldsEnum::NAMA_OWNER->value] ?? $customer->nama_owner,
             CustomerFieldsEnum::EMAIL->value   => $payload[CustomerFieldsEnum::EMAIL->value] ?? $customer->email,
             CustomerFieldsEnum::PHONE->value   => $payload[CustomerFieldsEnum::PHONE->value] ?? $customer->phone,
             CustomerFieldsEnum::ADDRESS->value => $payload[CustomerFieldsEnum::ADDRESS->value] ?? $customer->address,
-            CustomerFieldsEnum::BULAN_JOIN->value => $payload[CustomerFieldsEnum::BULAN_JOIN->value] ?? $customer->bulan_join,
-            CustomerFieldsEnum::TAHUN_JOIN->value => $payload[CustomerFieldsEnum::TAHUN_JOIN->value] ?? $customer->tahun_join,
+            CustomerFieldsEnum::TANGGAL_JOIN->value => $payload[CustomerFieldsEnum::TANGGAL_JOIN->value] ?? $customer->tanggal_join,
             CustomerFieldsEnum::STATUS_CUSTOMER->value => $payload[CustomerFieldsEnum::STATUS_CUSTOMER->value] ?? $customer->status_customer,
             CustomerFieldsEnum::STATUS_KOMISI->value => $payload[CustomerFieldsEnum::STATUS_KOMISI->value] ?? $customer->status_komisi,
             CustomerFieldsEnum::HARGA_KOMISI_STANDAR->value => $payload[CustomerFieldsEnum::HARGA_KOMISI_STANDAR->value] ?? $customer->harga_komisi_standar,
-            CustomerFieldsEnum::HARGA_KOMISI_EKSTRA->value => $payload[CustomerFieldsEnum::HARGA_KOMISI_EKSTRA->value] ?? $customer->harga_komisi_ekstra,
+            CustomerFieldsEnum::HARGA_KOMISI_EXTRA->value => $payload[CustomerFieldsEnum::HARGA_KOMISI_EXTRA->value] ?? $customer->harga_komisi_extra,
             CustomerFieldsEnum::PHOTO->value   => $photo,
         ];
 

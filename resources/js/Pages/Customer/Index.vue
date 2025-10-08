@@ -4,11 +4,9 @@ import {Head} from '@inertiajs/vue3';
 import CardTable from "@/Components/Cards/CardTable.vue";
 import TableData from "@/Components/TableData.vue";
 import Button from "@/Components/Button.vue";
-import InputError from "@/Components/InputError.vue";
 import Modal from "@/Components/Modal.vue";
 import {useForm} from '@inertiajs/vue3';
-import {nextTick, ref} from 'vue';
-import DashboardInputGroup from "@/Components/DashboardInputGroup.vue";
+import {ref} from 'vue';
 import {showToast} from "@/Utils/Helper.js";
 
 defineProps({
@@ -21,86 +19,14 @@ defineProps({
 });
 
 const selectedCustomer = ref(null);
-const showCreateModal = ref(false);
-const showEditModal = ref(false);
 const showDeleteModal = ref(false);
-const nameInput = ref(null);
-const tableHeads = ref(['#', "Name", "Email", "Phone", "Action"]);
+const tableHeads = ref(['#', "Customer", "Contact", "Sales Person", "Commission", "Orders", "Status", "Action"]);
 
-const form = useForm({
-    name: null,
-    nama_box: null,
-    nama_sales: null,
-    nama_owner: null,
-    email: null,
-    phone: null,
-    address: null,
-    bulan_join: null,
-    tahun_join: null,
-    status_customer: 'new',
-    status_komisi: null,
-    harga_komisi_standar: null,
-    harga_komisi_ekstra: null,
-    photo: null,
-});
-
-const createCustomerModal = () => {
-    showCreateModal.value = true;
-
-    nextTick(() => nameInput.value.focus());
-};
-
-const editCustomerModal = (customer) => {
-    selectedCustomer.value = customer;
-
-    form.name = customer.name;
-    form.nama_box = customer.nama_box;
-    form.nama_sales = customer.nama_sales;
-    form.nama_owner = customer.nama_owner;
-    form.email = customer.email;
-    form.phone = customer.phone;
-    form.address = customer.address;
-    form.bulan_join = customer.bulan_join;
-    form.tahun_join = customer.tahun_join;
-    form.status_customer = customer.status_customer;
-    form.status_komisi = customer.status_komisi;
-    form.harga_komisi_standar = customer.harga_komisi_standar;
-    form.harga_komisi_ekstra = customer.harga_komisi_ekstra;
-    form.photo = null;
-
-    showEditModal.value = true;
-    nextTick(() => nameInput.value.focus());
-};
+const form = useForm({});
 
 const deleteCustomerModal = (customer) => {
     selectedCustomer.value = customer;
     showDeleteModal.value = true;
-};
-
-const createCustomer = () => {
-    form.post(route('customers.store'), {
-        preserveScroll: true,
-        onSuccess: () => {
-            closeModal();
-            showToast();
-        },
-        onError: () => nameInput.value.focus(),
-    });
-};
-
-const updateCustomer = () => {
-    form.transform((data) => ({
-        ...data,
-        _method: "put"
-    }))
-        .post(route('customers.update', selectedCustomer.value.id), {
-            preserveScroll: true,
-            onSuccess: () => {
-                closeModal();
-                showToast();
-            },
-            onError: () => nameInput.value.focus(),
-        });
 };
 
 const deleteCustomer = () => {
@@ -114,8 +40,6 @@ const deleteCustomer = () => {
 };
 
 const closeModal = () => {
-    showCreateModal.value = false;
-    showEditModal.value = false;
     showDeleteModal.value = false;
     form.reset();
 };
@@ -140,7 +64,9 @@ const closeModal = () => {
                     <template #cardHeader>
                         <div class="flex justify-between items-center">
                             <h4 class="text-2xl">Apply filters({{customers.total}})</h4>
-                            <Button @click="createCustomerModal">Create Customer</Button>
+                            <Button :href="route('customers.create')" buttonType="link">
+                                <i class="fa fa-plus mr-2"></i>Create Customer
+                            </Button>
                         </div>
                     </template>
 
@@ -148,23 +74,97 @@ const closeModal = () => {
                         <TableData>
                             {{ (customers.current_page * customers.per_page) - (customers.per_page - (index + 1)) }}
                         </TableData>
-                        <TableData class="text-left flex items-center">
-                            <img
-                                :src="customer.photo"
-                                class="h-12 w-12 bg-white rounded-full border object-cover"
-                                alt="Inventory management system"
-                            />
-                            <span class="ml-3 font-bold text-blueGray-600">{{ customer.name }}</span>
+                        <!-- Customer Info -->
+                        <TableData class="text-left">
+                            <div class="flex items-center">
+                                <img
+                                    :src="customer.photo"
+                                    class="h-12 w-12 bg-white rounded-full border object-cover"
+                                    alt="Customer photo"
+                                />
+                                <div class="ml-3">
+                                    <p class="font-bold text-blueGray-600">{{ customer.name }}</p>
+                                    <p v-if="customer.nama_box" class="text-xs text-gray-500">
+                                        Box: {{ customer.nama_box }}
+                                    </p>
+                                </div>
+                            </div>
                         </TableData>
-                        <TableData>{{ customer.email }}</TableData>
-                        <TableData>{{ customer.phone }}</TableData>
-                        <TableData>
-                            <Button @click="editCustomerModal(customer)">
+
+                        <!-- Contact -->
+                        <TableData class="text-left">
+                            <div class="text-sm">
+                                <p class="text-gray-700">
+                                    <i class="fa fa-envelope text-gray-400 mr-1"></i>
+                                    {{ customer.email || '-' }}
+                                </p>
+                                <p class="text-gray-700 mt-1">
+                                    <i class="fa fa-phone text-gray-400 mr-1"></i>
+                                    {{ customer.phone || '-' }}
+                                </p>
+                            </div>
+                        </TableData>
+
+                        <!-- Sales Person -->
+                        <TableData class="text-left">
+                            <span v-if="customer.sales" class="text-sm text-gray-700">
+                                {{ customer.sales.name }}
+                            </span>
+                            <span v-else class="text-xs text-gray-400 italic">No sales assigned</span>
+                        </TableData>
+
+                        <!-- Commission -->
+                        <TableData class="text-left">
+                            <div v-if="customer.harga_komisi_standar || customer.harga_komisi_extra" class="text-sm">
+                                <p v-if="customer.harga_komisi_standar" class="text-gray-700">
+                                    <span class="text-xs text-gray-500">Std:</span>
+                                    Rp {{ customer.harga_komisi_standar.toLocaleString('id-ID') }}
+                                </p>
+                                <p v-if="customer.harga_komisi_extra" class="text-gray-700">
+                                    <span class="text-xs text-gray-500">Extra:</span>
+                                    Rp {{ customer.harga_komisi_extra.toLocaleString('id-ID') }}
+                                </p>
+                            </div>
+                            <span v-else class="text-xs text-gray-400 italic">No commission</span>
+                        </TableData>
+
+                        <!-- Orders Count -->
+                        <TableData class="text-center">
+                            <div class="flex flex-col items-center">
+                                <span class="text-lg font-bold text-emerald-600">
+                                    {{ customer.repeat_order_count || 0 }}
+                                </span>
+                                <span class="text-xs text-gray-500">orders</span>
+                            </div>
+                        </TableData>
+
+                        <!-- Status -->
+                        <TableData class="text-center">
+                            <span 
+                                v-if="customer.status_customer === 'repeat'"
+                                class="px-2 py-1 text-xs font-semibold text-blue-800 bg-blue-100 rounded-full"
+                            >
+                                <i class="fa fa-sync-alt mr-1"></i>
+                                Repeat
+                            </span>
+                            <span 
+                                v-else
+                                class="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full"
+                            >
+                                <i class="fa fa-star mr-1"></i>
+                                New
+                            </span>
+                        </TableData>
+
+                        <!-- Actions -->
+                        <TableData class="text-center">
+                            <Button :href="route('customers.edit', customer.id)" buttonType="link">
                                 <i class="fa fa-edit"></i>
                             </Button>
                             <Button
                                 @click="deleteCustomerModal(customer)"
                                 type="red"
+                                buttonType="button"
                             >
                                 <i class="fa fa-trash-alt"></i>
                             </Button>
@@ -173,344 +173,6 @@ const closeModal = () => {
                 </CardTable>
             </div>
         </div>
-
-        <!--Create data-->
-        <Modal
-            title="Create"
-            :show="showCreateModal"
-            :formProcessing="form.processing"
-            @close="closeModal"
-            @submitAction="createCustomer"
-        >
-            <div class="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Name"
-                        name="name"
-                        v-model="form.name"
-                        placeholder="Enter name"
-                        :errorMessage="form.errors.name"
-                        @keyupEnter="createCustomer"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Nama Box"
-                        name="nama_box"
-                        v-model="form.nama_box"
-                        placeholder="Enter nama box"
-                        :errorMessage="form.errors.nama_box"
-                        @keyupEnter="createCustomer"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Nama Sales"
-                        name="nama_sales"
-                        v-model="form.nama_sales"
-                        placeholder="Enter nama sales"
-                        :errorMessage="form.errors.nama_sales"
-                        @keyupEnter="createCustomer"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Nama Owner"
-                        name="nama_owner"
-                        v-model="form.nama_owner"
-                        placeholder="Enter nama owner"
-                        :errorMessage="form.errors.nama_owner"
-                        @keyupEnter="createCustomer"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Email"
-                        name="email"
-                        v-model="form.email"
-                        placeholder="Enter email"
-                        :errorMessage="form.errors.email"
-                        @keyupEnter="createCustomer"
-                        type="email"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Phone"
-                        name="phone"
-                        v-model="form.phone"
-                        placeholder="Enter phone"
-                        :errorMessage="form.errors.phone"
-                        @keyupEnter="createCustomer"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Bulan Join"
-                        name="bulan_join"
-                        v-model="form.bulan_join"
-                        placeholder="Enter bulan join"
-                        :errorMessage="form.errors.bulan_join"
-                        @keyupEnter="createCustomer"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Tahun Join"
-                        name="tahun_join"
-                        v-model="form.tahun_join"
-                        placeholder="Enter tahun join"
-                        :errorMessage="form.errors.tahun_join"
-                        @keyupEnter="createCustomer"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <label for="status_customer" class="text-stone-600 text-sm font-medium">Status Customer</label>
-                    <select
-                        id="status_customer"
-                        v-model="form.status_customer"
-                        class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
-                    >
-                        <option value="new">New</option>
-                        <option value="repeat">Repeat</option>
-                    </select>
-                    <InputError :message="form.errors.status_customer"/>
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Status Komisi"
-                        name="status_komisi"
-                        v-model="form.status_komisi"
-                        placeholder="Enter status komisi"
-                        :errorMessage="form.errors.status_komisi"
-                        @keyupEnter="createCustomer"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Harga Komisi Standar"
-                        name="harga_komisi_standar"
-                        v-model="form.harga_komisi_standar"
-                        placeholder="Enter harga komisi standar"
-                        :errorMessage="form.errors.harga_komisi_standar"
-                        @keyupEnter="createCustomer"
-                        type="number"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Harga Komisi Ekstra"
-                        name="harga_komisi_ekstra"
-                        v-model="form.harga_komisi_ekstra"
-                        placeholder="Enter harga komisi ekstra"
-                        :errorMessage="form.errors.harga_komisi_ekstra"
-                        @keyupEnter="createCustomer"
-                        type="number"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <label
-                        class="w-64 flex flex-col items-center px-4 py-6 bg-white text-blue rounded-lg shadow-lg tracking-wide uppercase border border-blue cursor-pointer hover:bg-blue hover:text-emerald-600">
-                        <svg class="w-8 h-8" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                            <path
-                                d="M16.88 9.1A4 4 0 0 1 16 17H5a5 5 0 0 1-1-9.9V7a3 3 0 0 1 4.52-2.59A4.98 4.98 0 0 1 17 8c0 .38-.04.74-.12 1.1zM11 11h3l-4-4-4 4h3v3h2v-3z"/>
-                        </svg>
-                        <span v-if="form.photo" class="mt-2 text-base leading-normal">{{
-                                form.photo.name.replace(/(^.{17}).*(\..+$)/, "$1...$2")
-                            }}</span>
-                        <span v-else class="mt-2 text-base leading-normal">Select a photo</span>
-                        <input
-                            @input="form.photo = $event.target.files[0]"
-                            type='file'
-                            class="hidden"
-                            accept="image/png, image/jpeg, image/jpg, image/gif, image/svg"
-                        />
-                    </label>
-                    <InputError :message="form.errors.photo"/>
-                </div>
-                <div class="flex flex-col">
-                    <label for="address" class="text-stone-600 text-sm font-medium">Address</label>
-                    <textarea
-                        id="address"
-                        v-model="form.address"
-                        type="text"
-                        rows="3"
-                        placeholder="Enter address"
-                        class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
-                    ></textarea>
-                    <InputError :message="form.errors.address"/>
-                </div>
-            </div>
-        </Modal>
-
-        <!--Edit data-->
-        <Modal
-            title="Edit"
-            :show="showEditModal"
-            :formProcessing="form.processing"
-            @close="closeModal"
-            @submitAction="updateCustomer"
-        >
-            <div class="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Name"
-                        name="name"
-                        v-model="form.name"
-                        placeholder="Enter name"
-                        :errorMessage="form.errors.name"
-                        @keyupEnter="updateCustomer"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Nama Box"
-                        name="nama_box"
-                        v-model="form.nama_box"
-                        placeholder="Enter nama box"
-                        :errorMessage="form.errors.nama_box"
-                        @keyupEnter="updateCustomer"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Nama Sales"
-                        name="nama_sales"
-                        v-model="form.nama_sales"
-                        placeholder="Enter nama sales"
-                        :errorMessage="form.errors.nama_sales"
-                        @keyupEnter="updateCustomer"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Nama Owner"
-                        name="nama_owner"
-                        v-model="form.nama_owner"
-                        placeholder="Enter nama owner"
-                        :errorMessage="form.errors.nama_owner"
-                        @keyupEnter="updateCustomer"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Email"
-                        name="email"
-                        v-model="form.email"
-                        placeholder="Enter email"
-                        :errorMessage="form.errors.email"
-                        @keyupEnter="updateCustomer"
-                        type="email"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Phone"
-                        name="phone"
-                        v-model="form.phone"
-                        placeholder="Enter phone"
-                        :errorMessage="form.errors.phone"
-                        @keyupEnter="updateCustomer"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Bulan Join"
-                        name="bulan_join"
-                        v-model="form.bulan_join"
-                        placeholder="Enter bulan join"
-                        :errorMessage="form.errors.bulan_join"
-                        @keyupEnter="updateCustomer"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Tahun Join"
-                        name="tahun_join"
-                        v-model="form.tahun_join"
-                        placeholder="Enter tahun join"
-                        :errorMessage="form.errors.tahun_join"
-                        @keyupEnter="updateCustomer"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <label for="status_customer_edit" class="text-stone-600 text-sm font-medium">Status Customer</label>
-                    <select
-                        id="status_customer_edit"
-                        v-model="form.status_customer"
-                        class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
-                    >
-                        <option value="new">New</option>
-                        <option value="repeat">Repeat</option>
-                    </select>
-                    <InputError :message="form.errors.status_customer"/>
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Status Komisi"
-                        name="status_komisi"
-                        v-model="form.status_komisi"
-                        placeholder="Enter status komisi"
-                        :errorMessage="form.errors.status_komisi"
-                        @keyupEnter="updateCustomer"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Harga Komisi Standar"
-                        name="harga_komisi_standar"
-                        v-model="form.harga_komisi_standar"
-                        placeholder="Enter harga komisi standar"
-                        :errorMessage="form.errors.harga_komisi_standar"
-                        @keyupEnter="updateCustomer"
-                        type="number"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <DashboardInputGroup
-                        label="Harga Komisi Ekstra"
-                        name="harga_komisi_ekstra"
-                        v-model="form.harga_komisi_ekstra"
-                        placeholder="Enter harga komisi ekstra"
-                        :errorMessage="form.errors.harga_komisi_ekstra"
-                        @keyupEnter="updateCustomer"
-                        type="number"
-                    />
-                </div>
-                <div class="flex flex-col">
-                    <label
-                        class="w-64 flex flex-col items-center px-4 py-6 bg-white text-blue rounded-lg shadow-lg tracking-wide uppercase border border-blue cursor-pointer hover:bg-blue hover:text-emerald-600">
-                        <svg class="w-8 h-8" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                            <path
-                                d="M16.88 9.1A4 4 0 0 1 16 17H5a5 5 0 0 1-1-9.9V7a3 3 0 0 1 4.52-2.59A4.98 4.98 0 0 1 17 8c0 .38-.04.74-.12 1.1zM11 11h3l-4-4-4 4h3v3h2v-3z"/>
-                        </svg>
-                        <span v-if="form.photo" class="mt-2 text-base leading-normal">{{
-                                form.photo.name.replace(/(^.{17}).*(\..+$)/, "$1...$2")
-                            }}</span>
-                        <span v-else class="mt-2 text-base leading-normal">Select a photo</span>
-                        <input
-                            @input="form.photo = $event.target.files[0]"
-                            type='file'
-                            class="hidden"
-                            accept="image/png, image/jpeg, image/jpg, image/gif, image/svg"
-                        />
-                    </label>
-                    <InputError :message="form.errors.photo"/>
-                </div>
-                <div class="flex flex-col">
-                    <label for="address" class="text-stone-600 text-sm font-medium">Address</label>
-                    <textarea
-                        id="address"
-                        v-model="form.address"
-                        type="text"
-                        rows="3"
-                        placeholder="Enter address"
-                        class="mt-2 block w-full rounded-md border border-gray-200 px-2 py-2 shadow-sm outline-none focus:outline-none focus:shadow-outline"
-                    ></textarea>
-                    <InputError :message="form.errors.address"/>
-                </div>
-            </div>
-        </Modal>
 
         <!--Delete data-->
         <Modal
