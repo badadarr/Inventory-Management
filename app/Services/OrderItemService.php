@@ -70,10 +70,11 @@ class OrderItemService
         $processPayloads = [];
         foreach ($payloads as $payload) {
             $processPayloads[] = [
-                OrderItemFieldsEnum::ORDER_ID->value     => $orderId,
-                OrderItemFieldsEnum::PRODUCT_ID->value   => $payload[OrderItemFieldsEnum::PRODUCT_ID->value],
-                OrderItemFieldsEnum::PRODUCT_JSON->value => json_encode($payload[OrderItemFieldsEnum::PRODUCT_JSON->value]),
-                OrderItemFieldsEnum::QUANTITY->value     => $payload[OrderItemFieldsEnum::QUANTITY->value],
+                OrderItemFieldsEnum::ORDER_ID->value   => $orderId,
+                OrderItemFieldsEnum::PRODUCT_ID->value => $payload[OrderItemFieldsEnum::PRODUCT_ID->value],
+                OrderItemFieldsEnum::QUANTITY->value   => $payload[OrderItemFieldsEnum::QUANTITY->value],
+                'unit_price'                           => $payload['unit_price'] ?? 0,
+                'subtotal'                             => $payload['subtotal'] ?? 0,
             ];
         }
 

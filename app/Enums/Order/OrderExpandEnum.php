@@ -10,6 +10,8 @@ enum OrderExpandEnum: string implements BaseEnumInterface
     use BaseEnumTrait;
 
     case CUSTOMER = 'customer';
+    case SALES = 'sales';
+    case CREATED_BY = 'createdBy';
     case ORDER_ITEMS = 'orderItems';
     case ORDER_ITEMS_PRODUCT = 'orderItems.product';
 
@@ -17,6 +19,8 @@ enum OrderExpandEnum: string implements BaseEnumInterface
     {
         return [
             self::CUSTOMER->value => "customer",
+            self::SALES->value => "sales",
+            self::CREATED_BY->value => "createdBy",
             self::ORDER_ITEMS->value => "orderItems",
             self::ORDER_ITEMS_PRODUCT->value => "orderItems.product",
         ];

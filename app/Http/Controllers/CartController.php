@@ -32,6 +32,12 @@ class CartController extends Controller
 
     public function index(ProductIndexRequest $request): Response
     {
+        // POS/Cart feature not available yet - needs discussion
+        return Inertia::render('Cart/NotAvailable');
+        
+        /* 
+        // TODO: Implement POS/Cart after business flow discussion
+        
         // Get products
         $productParams = $request->validated();
         $productParams[ProductFiltersEnum::STATUS->value] = ProductStatusEnum::ACTIVE;
@@ -80,6 +86,7 @@ class CartController extends Controller
                 'orderPaidByTypes' => BaseHelper::convertKeyValueToLabelValueArray(TransactionPaidThroughEnum::choices()),
             ]
         );
+        */
     }
 
     /**

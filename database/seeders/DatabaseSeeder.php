@@ -19,6 +19,9 @@ class DatabaseSeeder extends Seeder
         //     'email' => 'test@example.com',
         // ]);
         $this->call([
+            // Settings - Must run first
+            SettingSeeder::class,
+            
             // Core seeders - Must run first
             UserSeeder::class,
             SupplierSeeder::class,

@@ -136,11 +136,14 @@ class OrderRepository
             ->when(isset($filters[OrderFiltersEnum::DUE->value]), function ($query) use ($filters) {
                 $query->whereBetween(OrderFieldsEnum::DUE->value, $filters[OrderFiltersEnum::DUE->value]);
             })
-            ->when(isset($filters[OrderFiltersEnum::PROFIT->value]), function ($query) use ($filters) {
-                $query->whereBetween(OrderFieldsEnum::PROFIT->value, $filters[OrderFiltersEnum::PROFIT->value]);
+            ->when(isset($filters[OrderFiltersEnum::SALES_ID->value]), function ($query) use ($filters) {
+                $query->where(OrderFieldsEnum::SALES_ID->value, $filters[OrderFiltersEnum::SALES_ID->value]);
             })
-            ->when(isset($filters[OrderFiltersEnum::LOSS->value]), function ($query) use ($filters) {
-                $query->whereBetween(OrderFieldsEnum::LOSS->value, $filters[OrderFiltersEnum::LOSS->value]);
+            ->when(isset($filters[OrderFiltersEnum::TANGGAL_PO->value]), function ($query) use ($filters) {
+                $query->whereBetween(OrderFieldsEnum::TANGGAL_PO->value, $filters[OrderFiltersEnum::TANGGAL_PO->value]);
+            })
+            ->when(isset($filters[OrderFiltersEnum::TANGGAL_KIRIM->value]), function ($query) use ($filters) {
+                $query->whereBetween(OrderFieldsEnum::TANGGAL_KIRIM->value, $filters[OrderFiltersEnum::TANGGAL_KIRIM->value]);
             })
             ->when(isset($filters[OrderFiltersEnum::STATUS->value]), function ($query) use ($filters) {
                 $query->where(OrderFieldsEnum::STATUS->value, $filters[OrderFiltersEnum::STATUS->value]);

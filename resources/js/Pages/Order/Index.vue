@@ -7,9 +7,19 @@ import Button from "@/Components/Button.vue";
 import InputError from "@/Components/InputError.vue";
 import Modal from "@/Components/Modal.vue";
 import {useForm} from '@inertiajs/vue3';
-import {ref} from 'vue';
+import {ref, onMounted} from 'vue';
 import {formatDatetime, getCurrency, numberFormat, showToast, truncateString} from "@/Utils/Helper.js";
 import TableHead from "@/Components/TableHead.vue";
+import {usePage} from "@inertiajs/vue3";
+
+// Show toast on page load if there's a flash message
+onMounted(() => {
+    const flash = usePage().props.flash;
+    if (flash && flash.message) {
+        const type = flash.isSuccess === false ? 'error' : 'success';
+        showToast(flash.message, type);
+    }
+});
 
 defineProps({
     filters: {
@@ -27,7 +37,7 @@ const selectedOrder = ref(null);
 const showOrderItemsModal = ref(false);
 const showPaymentModal = ref(false);
 const showSettleModal = ref(false);
-const tableHeads = ref(["Order Number", "Customer", "Summary(" + getCurrency() + ")", "Paid", "Due", "Profit", "Loss", "Status", "Date", "Action"]);
+const tableHeads = ref(["Order Number", "Customer", "Sales Person", "Tanggal PO", "Summary(" + getCurrency() + ")", "Paid", "Due", "Status", "Date", "Action"]);
 
 const form = useForm({
     amount: null,
@@ -96,10 +106,22 @@ const closeModal = () => {
                     <template #cardHeader>
                         <div class="flex justify-between items-center">
                             <h4 class="text-2xl">Apply filters({{orders.total}})</h4>
-                            <Button
-                                :href="route('carts.index')"
-                                buttonType="link"
-                            >Create Order</Button>
+                            <div class="flex gap-2">
+                                <Button
+                                    :href="route('orders.create')"
+                                    buttonType="link"
+                                    class="bg-emerald-500 hover:bg-emerald-600"
+                                >
+                                    <i class="fa fa-plus mr-2"></i>Create Order
+                                </Button>
+                                <Button
+                                    :href="route('carts.index')"
+                                    buttonType="link"
+                                    class="bg-blue-500 hover:bg-blue-600"
+                                >
+                                    <i class="fa fa-shopping-cart mr-2"></i>POS / Cart
+                                </Button>
+                            </div>
                         </div>
                     </template>
 
@@ -107,18 +129,20 @@ const closeModal = () => {
                         <TableData>
                             <strong>#{{ order.order_number }}</strong>
                         </TableData>
-                        <TableData>{{ order.customer ? order.customer.name : 'Unknown' }}</TableData>
+                        <TableData>{{ order.customer ? order.customer.name : 'Walk-in' }}</TableData>
+                        <TableData>{{ order.sales ? order.sales.name : '-' }}</TableData>
+                        <TableData>{{ order.tanggal_po || '-' }}</TableData>
                         <TableData class="text-start">
-                            <span>Sub Total: {{ order.sub_total }}</span><br>
-                            <span>Tax: {{ order.tax_total }}</span><br>
-                            <span>Discount: {{ order.discount_total }}</span><br>
-                            <span>Total: {{ order.total }}</span><br>
+                            <span>Sub Total: {{ numberFormat(order.sub_total) }}</span><br>
+                            <span>Tax: {{ numberFormat(order.tax_total) }}</span><br>
+                            <span>Discount: {{ numberFormat(order.discount_total) }}</span><br>
+                            <span class="font-bold">Total: {{ getCurrency() }}{{ numberFormat(order.total) }}</span><br>
                         </TableData>
-                        <TableData>{{ getCurrency() }}{{ order.paid }}</TableData>
+                        <TableData>{{ getCurrency() }}{{ numberFormat(order.paid) }}</TableData>
                         <TableData>
-                            <span :class="order.due > 0 ? 'text-red-500 text-xl font-bold' : ''">{{ getCurrency() }}{{ order.due }}</span>
+                            <span :class="order.due > 0 ? 'text-red-500 text-xl font-bold' : ''">{{ getCurrency() }}{{ numberFormat(order.due) }}</span>
                             <br>
-                            <div class="flex" v-if="order.due > 0">
+                            <div class="flex gap-1" v-if="order.due > 0">
                                 <Button
                                     @click="payDueOrderModal(order)"
                                     title="Pay Due"
@@ -136,27 +160,37 @@ const closeModal = () => {
                                 </Button>
                             </div>
                         </TableData>
-                        <TableData :class="order.profit > 0 ? 'text-emerald-500 font-bold' : ''">{{ getCurrency() }}{{ order.profit }}</TableData>
-                        <TableData :class="order.loss > 0 ? 'text-red-500 font-bold' : ''">{{ getCurrency() }}{{ order.loss }}</TableData>
                         <TableData>
-                            <span v-if="order.status === 'paid'" class="text-xs font-semibold inline-block py-1 px-2 rounded text-emerald-600 bg-emerald-200">Paid</span>
-                            <span v-else-if="order.status === 'partial_paid'" class="text-xs font-semibold inline-block py-1 px-2 rounded text-amber-600 bg-amber-200">Partial Paid</span>
-                            <span v-else-if="order.status === 'over_paid'" class="text-xs font-semibold inline-block py-1 px-2 rounded text-purple-600 bg-purple-200">Over Paid</span>
-                            <span v-else-if="order.status === 'unpaid'" class="text-xs font-semibold inline-block py-1 px-2 rounded text-red-600 bg-red-200">Unpaid</span>
-                            <span v-else class="text-xs font-semibold inline-block py-1 px-2 rounded text-blue-600 bg-blue-200">Settled</span>
+                            <span v-if="order.status === 'completed'" class="text-xs font-semibold inline-block py-1 px-2 rounded text-emerald-600 bg-emerald-200 uppercase">
+                                <i class="fas fa-check-circle mr-1"></i>Completed
+                            </span>
+                            <span v-else-if="order.status === 'pending'" class="text-xs font-semibold inline-block py-1 px-2 rounded text-amber-600 bg-amber-200 uppercase">
+                                <i class="fas fa-clock mr-1"></i>Pending
+                            </span>
+                            <span v-else-if="order.status === 'cancelled'" class="text-xs font-semibold inline-block py-1 px-2 rounded text-red-600 bg-red-200 uppercase">
+                                <i class="fas fa-times-circle mr-1"></i>Cancelled
+                            </span>
+                            <span v-else class="text-xs font-semibold inline-block py-1 px-2 rounded text-gray-600 bg-gray-200 uppercase">{{ order.status }}</span>
                         </TableData>
                         <TableData>{{ formatDatetime(order.created_at) }}</TableData>
                         <TableData>
-                            <Button @click="viewOrderItemsModal(order)" title="Order Items">
-                                <i class="fa fa-list"></i>
-                            </Button>
-<!--                            <Button-->
-<!--                                :href="route('orders.show', order.id)"-->
-<!--                                buttonType="link"-->
-<!--                                preserveScroll-->
-<!--                            >-->
-<!--                                <i class="fa fa-eye"></i>-->
-<!--                            </Button>-->
+                            <div class="flex gap-2">
+                                <Button 
+                                    @click="viewOrderItemsModal(order)" 
+                                    title="View Order Items"
+                                    class="bg-blue-500 hover:bg-blue-600"
+                                >
+                                    <i class="fa fa-list"></i>
+                                </Button>
+                                <Button 
+                                    :href="route('orders.edit', order.id)"
+                                    buttonType="link"
+                                    title="Edit Order"
+                                    class="bg-emerald-500 hover:bg-emerald-600"
+                                >
+                                    <i class="fa fa-edit"></i>
+                                </Button>
+                            </div>
                         </TableData>
                     </tr>
                 </CardTable>
@@ -189,21 +223,21 @@ const closeModal = () => {
 
                         <template v-for="(orderItem, index) in selectedOrder?.orderItems || selectedOrder?.order_items || []" :key="orderItem?.id || index">
                             <tr v-if="orderItem">
-                                <TableData class="text-left flex items-center" :title="orderItem.product_json?.name || 'N/A'">
+                                <TableData class="text-left flex items-center" :title="orderItem.product?.name || 'N/A'">
                                     <img
-                                        :src="orderItem.product_json?.photo || '/assets/img/no-image.png'"
-                                        class="h-12 w-12 bg-white rounded-full border"
-                                        alt="Inventory management system"
-                                        @error="$event.target.src='/assets/img/no-image.png'"
+                                        :src="orderItem.product?.photo || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect fill=%22%23ddd%22 width=%22100%22 height=%22100%22/%3E%3Ctext fill=%22%23999%22 x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 font-size=%2218%22%3ENo Image%3C/svg%3E'"
+                                        class="h-12 w-12 bg-white rounded-full border object-cover"
+                                        alt="Product image"
+                                        @error="$event.target.style.display='none'"
                                     />
-                                    <span class="ml-3 font-bold text-blueGray-600">{{ orderItem.product_json?.name ? truncateString(orderItem.product_json.name, 15) : 'N/A' }}</span>
+                                    <span class="ml-3 font-bold text-blueGray-600">{{ orderItem.product?.name ? truncateString(orderItem.product.name, 15) : 'N/A' }}</span>
                                 </TableData>
-                                <TableData>{{ orderItem.product_json?.product_number || '-' }}</TableData>
-                                <TableData>{{ orderItem.product_json?.product_code || '-' }}</TableData>
+                                <TableData>{{ orderItem.product?.product_number || '-' }}</TableData>
+                                <TableData>{{ orderItem.product?.product_code || '-' }}</TableData>
                                 <TableData>
-                                    Buying: <strong>{{ getCurrency() }}{{ orderItem.product_json?.buying_price || 0 }}</strong>
+                                    Unit Price: <strong>{{ getCurrency() }}{{ numberFormat(orderItem.unit_price || 0) }}</strong>
                                     <br>
-                                    Selling: <strong>{{getCurrency() }}{{ orderItem.product_json?.selling_price || 0 }}</strong>
+                                    Subtotal: <strong>{{getCurrency() }}{{ numberFormat(orderItem.subtotal || 0) }}</strong>
                                 </TableData>
                                 <TableData>
                                     <strong>{{ numberFormat(orderItem.quantity) }}{{ orderItem.product?.unit_type?.symbol || '' }}</strong>

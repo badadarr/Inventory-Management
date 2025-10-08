@@ -39,6 +39,7 @@ class OrderController extends Controller
 
         $params['expand'] = array_unique(array_merge($params['expand'] ?? [], [
             OrderExpandEnum::CUSTOMER->value,
+            OrderExpandEnum::SALES->value,
             OrderExpandEnum::ORDER_ITEMS_PRODUCT->value . '.' . ProductExpandEnum::UNIT_TYPE->value,
         ]));
 
@@ -80,18 +81,6 @@ class OrderController extends Controller
                         'type'        => FilterFieldTypeEnum::NUMBER_RANGE->value,
                         'value'       => $request->validated()[OrderFiltersEnum::DUE->value] ?? "",
                     ],
-                    OrderFiltersEnum::PROFIT->value       => [
-                        'label'       => OrderFiltersEnum::PROFIT->label(),
-                        'placeholder' => 'Enter profit.',
-                        'type'        => FilterFieldTypeEnum::NUMBER_RANGE->value,
-                        'value'       => $request->validated()[OrderFiltersEnum::PROFIT->value] ?? "",
-                    ],
-                    OrderFiltersEnum::LOSS->value         => [
-                        'label'       => OrderFiltersEnum::LOSS->label(),
-                        'placeholder' => 'Enter loss.',
-                        'type'        => FilterFieldTypeEnum::NUMBER_RANGE->value,
-                        'value'       => $request->validated()[OrderFiltersEnum::LOSS->value] ?? "",
-                    ],
                     OrderFiltersEnum::STATUS->value       => [
                         'label'       => OrderFiltersEnum::STATUS->label(),
                         'placeholder' => 'Select status.',
@@ -123,15 +112,30 @@ class OrderController extends Controller
             ]);
     }
 
+    public function create()
+    {
+        return Inertia::render('Order/Create', [
+            'customers' => \App\Models\Customer::select('id', 'name')->orderBy('name')->get(),
+            'salesList' => \App\Models\Sales::select('id', 'name')->orderBy('name')->get(),
+            'products' => \App\Models\Product::with('unitType:id,symbol')
+                ->where('status', 'active')
+                ->select('id', 'name', 'product_code', 'selling_price', 'unit_type_id')
+                ->orderBy('name')
+                ->get(),
+        ]);
+    }
+
     public function store(OrderCreateRequest $request): RedirectResponse
     {
         try {
-            $this->service->createForUser(
+            // Use createDirect for order form, createForUser for POS/Cart
+            $this->service->createDirect(
                 payload: $request->validated(),
                 userId: auth()->id()
             );
             $flash = [
-                "message" => 'Order placed successfully.'
+                "isSuccess" => true,
+                "message"   => 'Order created successfully.'
             ];
         } catch (OrderCreateException $e) {
             $flash = [
@@ -141,17 +145,90 @@ class OrderController extends Controller
         } catch (Exception $e) {
             $flash = [
                 "isSuccess" => false,
-                "message"   => "Failed to place order.!",
+                "message"   => "Failed to create order!",
             ];
 
-            Log::error("Failed to place order", [
+            Log::error("Failed to create order", [
                 "message" => $e->getMessage(),
                 "traces"  => $e->getTrace()
             ]);
         }
 
         return redirect()
-            ->route('carts.index')
+            ->route('orders.index')
+            ->with('flash', $flash);
+    }
+
+    public function edit(int $id)
+    {
+        try {
+            $order = $this->service->findByIdOrFail($id, [
+                OrderExpandEnum::CUSTOMER->value,
+                OrderExpandEnum::SALES->value,
+                OrderExpandEnum::ORDER_ITEMS_PRODUCT->value . '.' . ProductExpandEnum::UNIT_TYPE->value,
+            ]);
+
+            // Check if order can be edited
+            if ($order->status === OrderStatusEnum::COMPLETED->value) {
+                return redirect()
+                    ->route('orders.index')
+                    ->with('flash', [
+                        'isSuccess' => false,
+                        'message' => 'Cannot edit completed order. Order status: ' . strtoupper($order->status)
+                    ]);
+            }
+
+            return Inertia::render('Order/Edit', [
+                'order' => $order,
+                'customers' => \App\Models\Customer::select('id', 'name')->orderBy('name')->get(),
+                'salesList' => \App\Models\Sales::select('id', 'name')->orderBy('name')->get(),
+                'products' => \App\Models\Product::with('unitType:id,symbol')
+                    ->where('status', 'active')
+                    ->select('id', 'name', 'product_code', 'selling_price', 'unit_type_id')
+                    ->orderBy('name')
+                    ->get(),
+            ]);
+        } catch (OrderNotFoundException $e) {
+            return redirect()
+                ->route('orders.index')
+                ->with('flash', [
+                    'isSuccess' => false,
+                    'message' => 'Order not found.'
+                ]);
+        }
+    }
+
+    public function update(OrderCreateRequest $request, int $id): RedirectResponse
+    {
+        try {
+            $this->service->update(
+                id: $id,
+                payload: $request->validated(),
+                userId: auth()->id()
+            );
+            $flash = [
+                "isSuccess" => true,
+                "message"   => 'Order updated successfully.'
+            ];
+        } catch (OrderNotFoundException $e) {
+            $flash = [
+                "isSuccess" => false,
+                "message"   => 'Order not found.',
+            ];
+        } catch (Exception $e) {
+            $flash = [
+                "isSuccess" => false,
+                "message"   => "Failed to update order!",
+            ];
+
+            Log::error("Failed to update order", [
+                "message" => $e->getMessage(),
+                "traces"  => $e->getTrace()
+            ]);
+        }
+
+        return redirect()
+            ->route('orders.index')
             ->with('flash', $flash);
     }
 

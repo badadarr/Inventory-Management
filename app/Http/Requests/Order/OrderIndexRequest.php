@@ -30,6 +30,7 @@ class OrderIndexRequest extends BaseIndexRequest
     {
         return [
             OrderFiltersEnum::CUSTOMER_ID->value      => ["nullable", "integer"],
+            OrderFiltersEnum::SALES_ID->value         => ["nullable", "integer"],
             OrderFiltersEnum::ORDER_NUMBER->value     => ["nullable", "max:255"],
             OrderFiltersEnum::SUB_TOTAL->value        => ["nullable", "array", "min:2", "max:2"],
             OrderFiltersEnum::SUB_TOTAL->value . ".*" => ["required", "numeric", "min:0"],
@@ -37,11 +38,11 @@ class OrderIndexRequest extends BaseIndexRequest
             OrderFiltersEnum::TOTAL->value . ".*"     => ["required", "numeric", "min:0"],
             OrderFiltersEnum::DUE->value              => ["nullable", "array", "min:2", "max:2"],
             OrderFiltersEnum::DUE->value . ".*"       => ["required", "numeric", "min:0"],
-            OrderFiltersEnum::PROFIT->value           => ["nullable", "array", "min:2", "max:2"],
-            OrderFiltersEnum::PROFIT->value . ".*"    => ["required", "numeric", "min:0"],
-            OrderFiltersEnum::LOSS->value             => ["nullable", "array", "min:2", "max:2"],
-            OrderFiltersEnum::LOSS->value . ".*"      => ["required", "numeric", "min:0"],
             OrderFiltersEnum::STATUS->value           => ["nullable", "string", Rule::in(OrderStatusEnum::values())],
+            OrderFiltersEnum::TANGGAL_PO->value       => ["nullable", "array", "min:2", "max:2"],
+            OrderFiltersEnum::TANGGAL_PO->value . ".*" => ["nullable", "date"],
+            OrderFiltersEnum::TANGGAL_KIRIM->value    => ["nullable", "array", "min:2", "max:2"],
+            OrderFiltersEnum::TANGGAL_KIRIM->value . ".*" => ["nullable", "date"],
 
             "created_at"   => ["nullable", "array", "min:2", "max:2"],
             "created_at.*" => ["nullable", "date_format:Y-m-d H:i:s"],
@@ -62,8 +63,8 @@ class OrderIndexRequest extends BaseIndexRequest
             OrderFiltersEnum::SUB_TOTAL->value,
             OrderFiltersEnum::TOTAL->value,
             OrderFiltersEnum::DUE->value,
-            OrderFiltersEnum::PROFIT->value,
-            OrderFiltersEnum::LOSS->value,
+            OrderFiltersEnum::TANGGAL_PO->value,
+            OrderFiltersEnum::TANGGAL_KIRIM->value,
         ];
     }
 }

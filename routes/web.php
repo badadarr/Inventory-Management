@@ -69,7 +69,7 @@ Route::middleware('auth')->group(function () {
     Route::apiResource('salaries', SalaryController::class);
 
     // Order
-    Route::apiResource('orders', OrderController::class);
+    Route::resource('orders', OrderController::class)->except(['show', 'destroy']);
     Route::put('orders/{order}/settle', [OrderController::class, 'settle'])->name('orders.settle');
     Route::put('orders/{order}/pay', [OrderController::class, 'pay'])->name('orders.pay');
 

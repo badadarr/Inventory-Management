@@ -79,6 +79,323 @@ class OrderService
     }
 
     /**
+     * Create order directly from order items (not from cart)
+     * Used by Order/Create.vue form
+     * 
+     * @param array $payload
+     * @param int $userId
+     * @return Order
+     * @throws DBCommitException
+     * @throws OrderCreateException
+     * @throws ProductNotFoundException
+     */
+    public function createDirect(array $payload, int $userId): Order
+    {
+        try {
+            DB::beginTransaction();
+            
+            // Get order items from payload
+            $orderItems = $payload['order_items'] ?? [];
+            
+            if (empty($orderItems)) {
+                throw new OrderCreateException("Order items cannot be empty.");
+            }
+
+            // Calculate sub_total and prepare order items
+            $cartSubtotal = 0;
+            $processOrderItemPayloads = [];
+            
+            foreach ($orderItems as $item) {
+                // Get product
+                $product = $this->productService->findByIdOrFail($item['product_id'], []);
+                
+                // Check product is active
+                if ($product->status == ProductStatusEnum::INACTIVE->value) {
+                    throw new OrderCreateException("Product id {$product->id} is not active now.");
+                }
+
+                // Check product quantity is available
+                if ($item['quantity'] > $product->quantity) {
+                    throw new OrderCreateException("Product quantity not available for {$product->name}. Available: {$product->quantity}, Requested: {$item['quantity']}");
+                }
+
+                $itemPrice = $item['price'] ?? $product->selling_price;
+                $itemSubtotal = $itemPrice * $item['quantity'];
+                $cartSubtotal += $itemSubtotal;
+
+                $processOrderItemPayloads[] = [
+                    OrderItemFieldsEnum::PRODUCT_ID->value => $product->id,
+                    OrderItemFieldsEnum::QUANTITY->value   => $item['quantity'],
+                    'unit_price'                           => $itemPrice,
+                    'subtotal'                             => $itemSubtotal,
+                ];
+
+                // Decrement product quantity
+                $this->productService->update(
+                    id: $product->id,
+                    payload: [
+                        ProductFieldsEnum::QUANTITY->value => $product->quantity - $item['quantity'],
+                    ]
+                );
+            }
+
+            // Calculate tax_total
+            $taxData = BaseHelper::calculateTax(amount: $cartSubtotal);
+            $taxTotal = $taxData["totalTax"];
+
+            // Calculate discount_total with custom discount
+            $discountDefaultData = BaseHelper::calculateDefaultDiscount(amount: $cartSubtotal);
+            $customDiscount = $payload['custom_discount'] ?? [];
+            $discountTotal = $discountDefaultData['totalDiscount'];
+            if ($customDiscount) {
+                $customDiscountData = BaseHelper::calculateCustomDiscount(
+                    amount: $cartSubtotal,
+                    discount: $customDiscount['discount'],
+                    discountType: $customDiscount['discount_type']
+                );
+                $discountTotal = $customDiscountData['totalDiscount'] + $discountTotal;
+            }
+
+            // Calculate total
+            $total = $cartSubtotal - $discountTotal;
+            $totalWithTax = $total + $taxTotal;
+
+            // Calculate due
+            $paid = $payload[OrderFieldsEnum::PAID->value] ?? 0;
+            $due = $total - $paid;
+            $dueWithTax = $totalWithTax - $paid;
+
+            // Decide status
+            $status = $this->decideStatus(
+                paid: $paid,
+                total: $totalWithTax
+            );
+
+            $processPayload = [
+                OrderFieldsEnum::CUSTOMER_ID->value    => $payload[OrderFieldsEnum::CUSTOMER_ID->value] ?? null,
+                OrderFieldsEnum::SALES_ID->value       => $payload[OrderFieldsEnum::SALES_ID->value] ?? null,
+                OrderFieldsEnum::ORDER_NUMBER->value   => 'O-' . Str::random(5),
+                OrderFieldsEnum::SUB_TOTAL->value      => $cartSubtotal,
+                OrderFieldsEnum::TAX_TOTAL->value      => $taxTotal,
+                OrderFieldsEnum::DISCOUNT_TOTAL->value => $discountTotal,
+                OrderFieldsEnum::TOTAL->value          => $totalWithTax,
+                OrderFieldsEnum::PAID->value           => $paid,
+                OrderFieldsEnum::DUE->value            => max($dueWithTax, 0),
+                OrderFieldsEnum::STATUS->value         => $status,
+                OrderFieldsEnum::TANGGAL_PO->value     => $payload[OrderFieldsEnum::TANGGAL_PO->value] ?? null,
+                OrderFieldsEnum::TANGGAL_KIRIM->value  => $payload[OrderFieldsEnum::TANGGAL_KIRIM->value] ?? null,
+                OrderFieldsEnum::JENIS_BAHAN->value    => $payload[OrderFieldsEnum::JENIS_BAHAN->value] ?? null,
+                OrderFieldsEnum::GRAMASI->value        => $payload[OrderFieldsEnum::GRAMASI->value] ?? null,
+                OrderFieldsEnum::VOLUME->value         => $payload[OrderFieldsEnum::VOLUME->value] ?? null,
+                OrderFieldsEnum::HARGA_JUAL_PCS->value => $payload[OrderFieldsEnum::HARGA_JUAL_PCS->value] ?? null,
+                OrderFieldsEnum::JUMLAH_CETAK->value   => $payload[OrderFieldsEnum::JUMLAH_CETAK->value] ?? null,
+                OrderFieldsEnum::CATATAN->value        => $payload[OrderFieldsEnum::CATATAN->value] ?? null,
+                OrderFieldsEnum::CREATED_BY->value     => $userId,
+            ];
+
+            // Create order
+            $order = $this->repository->create($processPayload);
+
+            // Insert order items
+            $this->orderItemService->insert(
+                payloads: $processOrderItemPayloads,
+                orderId: $order->id
+            );
+
+            // Create transaction if paid
+            if ($paid > 0) {
+                $this->transactionService->create([
+                    TransactionFieldsEnum::ORDER_ID->value     => $order->id,
+                    TransactionFieldsEnum::AMOUNT->value       => $paid,
+                    TransactionFieldsEnum::PAID_THROUGH->value => $payload['paid_through'] ?? 'cash',
+                ]);
+            }
+
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+
+        return $order;
+    }
+
+    /**
+     * Update existing order
+     * 
+     * @param int $id
+     * @param array $payload
+     * @param int $userId
+     * @return Order
+     * @throws DBCommitException
+     * @throws OrderNotFoundException
+     * @throws ProductNotFoundException
+     */
+    public function update(int $id, array $payload, int $userId): Order
+    {
+        try {
+            DB::beginTransaction();
+            
+            // Find existing order
+            $order = $this->findByIdOrFail($id, [OrderExpandEnum::ORDER_ITEMS->value]);
+            
+            // Get order items from payload
+            $orderItems = $payload['order_items'] ?? [];
+            
+            if (empty($orderItems)) {
+                throw new OrderCreateException("Order items cannot be empty.");
+            }
+
+            // First, restore stock from old order items
+            foreach ($order->orderItems as $oldItem) {
+                $oldProduct = $this->productService->findByIdOrFail($oldItem->product_id, []);
+                $this->productService->update(
+                    id: $oldProduct->id,
+                    payload: [
+                        ProductFieldsEnum::QUANTITY->value => $oldProduct->quantity + $oldItem->quantity,
+                    ]
+                );
+            }
+
+            // Delete old order items
+            $order->orderItems()->delete();
+
+            // Calculate sub_total and prepare new order items
+            $cartSubtotal = 0;
+            $processOrderItemPayloads = [];
+            
+            foreach ($orderItems as $item) {
+                // Get product
+                $product = $this->productService->findByIdOrFail($item['product_id'], []);
+                
+                // Check product is active
+                if ($product->status == ProductStatusEnum::INACTIVE->value) {
+                    throw new OrderCreateException("Product id {$product->id} is not active now.");
+                }
+
+                // Check product quantity is available
+                if ($item['quantity'] > $product->quantity) {
+                    throw new OrderCreateException("Product quantity not available for {$product->name}. Available: {$product->quantity}, Requested: {$item['quantity']}");
+                }
+
+                $itemPrice = $item['price'] ?? $product->selling_price;
+                $itemSubtotal = $itemPrice * $item['quantity'];
+                $cartSubtotal += $itemSubtotal;
+
+                $processOrderItemPayloads[] = [
+                    OrderItemFieldsEnum::PRODUCT_ID->value => $product->id,
+                    OrderItemFieldsEnum::QUANTITY->value   => $item['quantity'],
+                    'unit_price'                           => $itemPrice,
+                    'subtotal'                             => $itemSubtotal,
+                ];
+
+                // Decrement product quantity
+                $this->productService->update(
+                    id: $product->id,
+                    payload: [
+                        ProductFieldsEnum::QUANTITY->value => $product->quantity - $item['quantity'],
+                    ]
+                );
+            }
+
+            // Calculate tax_total
+            $taxData = BaseHelper::calculateTax(amount: $cartSubtotal);
+            $taxTotal = $taxData["totalTax"];
+
+            // Calculate discount_total with custom discount
+            $discountDefaultData = BaseHelper::calculateDefaultDiscount(amount: $cartSubtotal);
+            $customDiscount = $payload['custom_discount'] ?? [];
+            $discountTotal = $discountDefaultData['totalDiscount'];
+            if ($customDiscount) {
+                $customDiscountData = BaseHelper::calculateCustomDiscount(
+                    amount: $cartSubtotal,
+                    discount: $customDiscount['discount'],
+                    discountType: $customDiscount['discount_type']
+                );
+                $discountTotal = $customDiscountData['totalDiscount'] + $discountTotal;
+            }
+
+            // Calculate total
+            $total = $cartSubtotal - $discountTotal;
+            $totalWithTax = $total + $taxTotal;
+
+            // Calculate due
+            $paid = $payload[OrderFieldsEnum::PAID->value] ?? 0;
+            $due = $total - $paid;
+            $dueWithTax = $totalWithTax - $paid;
+
+            // Decide status
+            $status = $this->decideStatus(
+                paid: $paid,
+                total: $totalWithTax
+            );
+
+            // Update order
+            $updatePayload = [
+                OrderFieldsEnum::CUSTOMER_ID->value    => $payload[OrderFieldsEnum::CUSTOMER_ID->value] ?? null,
+                OrderFieldsEnum::SALES_ID->value       => $payload[OrderFieldsEnum::SALES_ID->value] ?? null,
+                OrderFieldsEnum::SUB_TOTAL->value      => $cartSubtotal,
+                OrderFieldsEnum::TAX_TOTAL->value      => $taxTotal,
+                OrderFieldsEnum::DISCOUNT_TOTAL->value => $discountTotal,
+                OrderFieldsEnum::TOTAL->value          => $totalWithTax,
+                OrderFieldsEnum::PAID->value           => $paid,
+                OrderFieldsEnum::DUE->value            => max($dueWithTax, 0),
+                OrderFieldsEnum::STATUS->value         => $status,
+                OrderFieldsEnum::TANGGAL_PO->value     => $payload[OrderFieldsEnum::TANGGAL_PO->value] ?? null,
+                OrderFieldsEnum::TANGGAL_KIRIM->value  => $payload[OrderFieldsEnum::TANGGAL_KIRIM->value] ?? null,
+                OrderFieldsEnum::JENIS_BAHAN->value    => $payload[OrderFieldsEnum::JENIS_BAHAN->value] ?? null,
+                OrderFieldsEnum::GRAMASI->value        => $payload[OrderFieldsEnum::GRAMASI->value] ?? null,
+                OrderFieldsEnum::VOLUME->value         => $payload[OrderFieldsEnum::VOLUME->value] ?? null,
+                OrderFieldsEnum::HARGA_JUAL_PCS->value => $payload[OrderFieldsEnum::HARGA_JUAL_PCS->value] ?? null,
+                OrderFieldsEnum::JUMLAH_CETAK->value   => $payload[OrderFieldsEnum::JUMLAH_CETAK->value] ?? null,
+                OrderFieldsEnum::CATATAN->value        => $payload[OrderFieldsEnum::CATATAN->value] ?? null,
+            ];
+
+            $updatedOrder = $this->repository->update($order, $updatePayload);
+
+            // Insert new order items
+            $this->orderItemService->insert(
+                payloads: $processOrderItemPayloads,
+                orderId: $updatedOrder->id
+            );
+
+            // Reload order with transaction
+            $order = $this->findByIdOrFail($id, ['transaction']);
+            
+            // Update transaction if exists, or create new one
+            $existingTransaction = $order->transaction;
+            if ($paid > 0) {
+                if ($existingTransaction) {
+                    // Update existing transaction
+                    $existingTransaction->update([
+                        TransactionFieldsEnum::AMOUNT->value       => $paid,
+                        TransactionFieldsEnum::PAID_THROUGH->value => $payload['paid_through'] ?? 'cash',
+                    ]);
+                } else {
+                    // Create new transaction
+                    $this->transactionService->create([
+                        TransactionFieldsEnum::ORDER_ID->value     => $order->id,
+                        TransactionFieldsEnum::AMOUNT->value       => $paid,
+                        TransactionFieldsEnum::PAID_THROUGH->value => $payload['paid_through'] ?? 'cash',
+                    ]);
+                }
+            } elseif ($existingTransaction && $paid == 0) {
+                // If paid is now 0, delete transaction
+                $existingTransaction->delete();
+            }
+
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+
+        return $order;
+    }
+
+    /**
+     * Create order from cart items (POS system)
+     * 
      * @param array $payload
      * @param int $userId
      * @return Order
@@ -112,13 +429,16 @@ class OrderService
                     throw new OrderCreateException("Product quantity not available for id {$cart->product_id}.");
                 }
 
-                $cartSubtotal += $cart->product->selling_price * $cart->quantity;
+                $itemPrice = $cart->product->selling_price;
+                $itemSubtotal = $itemPrice * $cart->quantity;
+                $cartSubtotal += $itemSubtotal;
                 $productBuyingSubtotal += $cart->product->buying_price * $cart->quantity;
 
                 $processOrderItemPayloads[] = [
-                    OrderItemFieldsEnum::PRODUCT_ID->value   => $cart->product->id,
-                    OrderItemFieldsEnum::PRODUCT_JSON->value => $cart->product->toArray(),
-                    OrderItemFieldsEnum::QUANTITY->value     => $cart->quantity,
+                    OrderItemFieldsEnum::PRODUCT_ID->value => $cart->product->id,
+                    OrderItemFieldsEnum::QUANTITY->value   => $cart->quantity,
+                    'unit_price'                           => $itemPrice,
+                    'subtotal'                             => $itemSubtotal,
                 ];
 
                 // Decrement product quantity
@@ -159,13 +479,6 @@ class OrderService
             $due = $total - $paid;
             $dueWithTax = $totalWithTax - $paid;
 
-            // Calculate profit and loss
-            [$profit, $loss] = $this->decideProfitLoss(
-                paid: $paid,
-                taxTotal: $taxTotal,
-                productBuyingSubtotal: $productBuyingSubtotal,
-            );
-
             // Decide status
             $status = $this->decideStatus(
                 paid: $paid,
@@ -174,6 +487,7 @@ class OrderService
 
             $processPayload = [
                 OrderFieldsEnum::CUSTOMER_ID->value    => $payload[OrderFieldsEnum::CUSTOMER_ID->value] ?? null,
+                OrderFieldsEnum::SALES_ID->value       => $payload[OrderFieldsEnum::SALES_ID->value] ?? null,
                 OrderFieldsEnum::ORDER_NUMBER->value   => 'O-' . Str::random(5),
                 OrderFieldsEnum::SUB_TOTAL->value      => $cartSubtotal,
                 OrderFieldsEnum::TAX_TOTAL->value      => $taxTotal,
@@ -181,9 +495,16 @@ class OrderService
                 OrderFieldsEnum::TOTAL->value          => $totalWithTax,
                 OrderFieldsEnum::PAID->value           => $paid,
                 OrderFieldsEnum::DUE->value            => max($dueWithTax, 0),
-                OrderFieldsEnum::PROFIT->value         => $profit,
-                OrderFieldsEnum::LOSS->value           => $loss,
                 OrderFieldsEnum::STATUS->value         => $status,
+                OrderFieldsEnum::TANGGAL_PO->value     => $payload[OrderFieldsEnum::TANGGAL_PO->value] ?? null,
+                OrderFieldsEnum::TANGGAL_KIRIM->value  => $payload[OrderFieldsEnum::TANGGAL_KIRIM->value] ?? null,
+                OrderFieldsEnum::JENIS_BAHAN->value    => $payload[OrderFieldsEnum::JENIS_BAHAN->value] ?? null,
+                OrderFieldsEnum::GRAMASI->value        => $payload[OrderFieldsEnum::GRAMASI->value] ?? null,
+                OrderFieldsEnum::VOLUME->value         => $payload[OrderFieldsEnum::VOLUME->value] ?? null,
+                OrderFieldsEnum::HARGA_JUAL_PCS->value => $payload[OrderFieldsEnum::HARGA_JUAL_PCS->value] ?? null,
+                OrderFieldsEnum::JUMLAH_CETAK->value   => $payload[OrderFieldsEnum::JUMLAH_CETAK->value] ?? null,
+                OrderFieldsEnum::CATATAN->value        => $payload[OrderFieldsEnum::CATATAN->value] ?? null,
+                OrderFieldsEnum::CREATED_BY->value     => $userId,
             ];
 
             // Create order
@@ -233,20 +554,11 @@ class OrderService
         $total = $order->sub_total - $discountTotal;
         $totalWithTax = $total + $order->tax_total;
 
-        // Calculate profit and loss
-        [$profit, $loss] = $this->decideProfitLoss(
-            paid: $order->paid,
-            taxTotal: $order->tax_total,
-            order: $order,
-        );
-
         $processPayload = [
             OrderFieldsEnum::DISCOUNT_TOTAL->value => $discountTotal,
             OrderFieldsEnum::TOTAL->value          => $totalWithTax,
             OrderFieldsEnum::DUE->value            => 0,
-            OrderFieldsEnum::PROFIT->value         => $profit,
-            OrderFieldsEnum::LOSS->value           => $loss,
-            OrderFieldsEnum::STATUS->value         => OrderStatusEnum::SETTLED->value,
+            OrderFieldsEnum::STATUS->value         => OrderStatusEnum::COMPLETED->value,
         ];
 
         return $this->repository->update($order, $processPayload);
@@ -266,24 +578,12 @@ class OrderService
         $paid = $order->paid + $payload[TransactionFieldsEnum::AMOUNT->value];
         $due = max($order->total - $paid, 0);
 
-        // Calculate profit and loss
-        [$profit, $loss] = $this->decideProfitLoss(
-            paid: $paid,
-            taxTotal: $order->tax_total,
-            order: $order,
-        );
-
-        // Decide status
-        $status = $this->decideStatus(
-            paid: $paid,
-            total: $order->total
-        );
+        // Decide status - if fully paid, mark as completed
+        $status = ($due <= 0) ? OrderStatusEnum::COMPLETED->value : OrderStatusEnum::PENDING->value;
 
         $processPayload = [
             OrderFieldsEnum::PAID->value   => $paid,
             OrderFieldsEnum::DUE->value    => $due,
-            OrderFieldsEnum::PROFIT->value => $profit,
-            OrderFieldsEnum::LOSS->value   => $loss,
             OrderFieldsEnum::STATUS->value => $status,
         ];
 
@@ -321,49 +621,15 @@ class OrderService
 
     /**
      * @param int|float $paid
-     * @param int|float $taxTotal
-     * @param int|float $productBuyingSubtotal
-     * @param Order|null $order
-     * @return array
-     */
-    private function decideProfitLoss(int|float $paid, int|float $taxTotal, int|float $productBuyingSubtotal = 0, Order $order = null): array
-    {
-        if ($order) {
-            $productBuyingSubtotal = 0;
-            foreach ($order->orderItems as $orderItem) {
-                $productBuyingSubtotal += $orderItem->product_json['buying_price'] * $orderItem->quantity;
-            }
-        }
-
-        $profit = $paid - $productBuyingSubtotal - $taxTotal;
-        if ($profit < 0) {
-            $loss = abs($profit);
-            $profit = 0;
-        } elseif ($profit == 0) {
-            $loss = 0;
-        } else {
-            $loss = 0;
-        }
-
-        return [$profit, $loss];
-    }
-
-    /**
-     * @param int|float $paid
      * @param int|float $total
      * @return string
      */
     private function decideStatus(int|float $paid, int|float $total): string
     {
-        if ($paid == 0) {
-            $status = OrderStatusEnum::UNPAID->value;
-        } elseif ($paid == $total) {
-            $status = OrderStatusEnum::PAID->value;
-        } elseif ($paid > $total) {
-            $status = OrderStatusEnum::OVER_PAID->value;
-        } else {
-            $status = OrderStatusEnum::PARTIAL_PAID->value;
+        // Simple status logic: if fully paid -> completed, otherwise -> pending
+        if ($paid >= $total) {
+            return OrderStatusEnum::COMPLETED->value;
         }
-        return $status;
+        return OrderStatusEnum::PENDING->value;
     }
 }
