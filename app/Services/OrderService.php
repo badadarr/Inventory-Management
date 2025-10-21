@@ -30,13 +30,14 @@ use Illuminate\Support\Str;
 class OrderService
 {
     public function __construct(
-        private readonly OrderRepository    $repository,
-        private readonly OrderItemService   $orderItemService,
-        private readonly CartService        $cartService,
-        private readonly ProductService     $productService,
+        private readonly OrderRepository $repository,
+        private readonly OrderItemService $orderItemService,
+        private readonly CartService $cartService,
+        private readonly ProductService $productService,
         private readonly TransactionService $transactionService,
-    )
-    {
+        private readonly ProductCustomerPriceService $customPriceService,
+        private readonly OrderActivityService $activityService,
+    ) {
     }
 
     /**
@@ -93,10 +94,10 @@ class OrderService
     {
         try {
             DB::beginTransaction();
-            
+
             // Get order items from payload
             $orderItems = $payload['order_items'] ?? [];
-            
+
             if (empty($orderItems)) {
                 throw new OrderCreateException("Order items cannot be empty.");
             }
@@ -104,11 +105,12 @@ class OrderService
             // Calculate sub_total and prepare order items
             $cartSubtotal = 0;
             $processOrderItemPayloads = [];
-            
+            $customerId = $payload[OrderFieldsEnum::CUSTOMER_ID->value] ?? null;
+
             foreach ($orderItems as $item) {
                 // Get product
                 $product = $this->productService->findByIdOrFail($item['product_id'], []);
-                
+
                 // Check product is active
                 if ($product->status == ProductStatusEnum::INACTIVE->value) {
                     throw new OrderCreateException("Product id {$product->id} is not active now.");
@@ -119,15 +121,25 @@ class OrderService
                     throw new OrderCreateException("Product quantity not available for {$product->name}. Available: {$product->quantity}, Requested: {$item['quantity']}");
                 }
 
+                // Check for custom pricing first, then use provided price, fallback to selling price
                 $itemPrice = $item['price'] ?? $product->selling_price;
+                
+                // If customer is provided, check for custom pricing
+                if ($customerId) {
+                    $customPrice = $this->customPriceService->find($product->id, $customerId);
+                    if ($customPrice) {
+                        $itemPrice = $customPrice->custom_price;
+                    }
+                }
+                
                 $itemSubtotal = $itemPrice * $item['quantity'];
                 $cartSubtotal += $itemSubtotal;
 
                 $processOrderItemPayloads[] = [
                     OrderItemFieldsEnum::PRODUCT_ID->value => $product->id,
-                    OrderItemFieldsEnum::QUANTITY->value   => $item['quantity'],
-                    'unit_price'                           => $itemPrice,
-                    'subtotal'                             => $itemSubtotal,
+                    OrderItemFieldsEnum::QUANTITY->value => $item['quantity'],
+                    'unit_price' => $itemPrice,
+                    'subtotal' => $itemSubtotal,
                 ];
 
                 // Decrement product quantity
@@ -172,25 +184,25 @@ class OrderService
             );
 
             $processPayload = [
-                OrderFieldsEnum::CUSTOMER_ID->value    => $payload[OrderFieldsEnum::CUSTOMER_ID->value] ?? null,
-                OrderFieldsEnum::SALES_ID->value       => $payload[OrderFieldsEnum::SALES_ID->value] ?? null,
-                OrderFieldsEnum::ORDER_NUMBER->value   => 'O-' . Str::random(5),
-                OrderFieldsEnum::SUB_TOTAL->value      => $cartSubtotal,
-                OrderFieldsEnum::TAX_TOTAL->value      => $taxTotal,
+                OrderFieldsEnum::CUSTOMER_ID->value => $payload[OrderFieldsEnum::CUSTOMER_ID->value] ?? null,
+                OrderFieldsEnum::SALES_ID->value => $payload[OrderFieldsEnum::SALES_ID->value] ?? null,
+                OrderFieldsEnum::ORDER_NUMBER->value => 'O-' . Str::random(5),
+                OrderFieldsEnum::SUB_TOTAL->value => $cartSubtotal,
+                OrderFieldsEnum::TAX_TOTAL->value => $taxTotal,
                 OrderFieldsEnum::DISCOUNT_TOTAL->value => $discountTotal,
-                OrderFieldsEnum::TOTAL->value          => $totalWithTax,
-                OrderFieldsEnum::PAID->value           => $paid,
-                OrderFieldsEnum::DUE->value            => max($dueWithTax, 0),
-                OrderFieldsEnum::STATUS->value         => $status,
-                OrderFieldsEnum::TANGGAL_PO->value     => $payload[OrderFieldsEnum::TANGGAL_PO->value] ?? null,
-                OrderFieldsEnum::TANGGAL_KIRIM->value  => $payload[OrderFieldsEnum::TANGGAL_KIRIM->value] ?? null,
-                OrderFieldsEnum::JENIS_BAHAN->value    => $payload[OrderFieldsEnum::JENIS_BAHAN->value] ?? null,
-                OrderFieldsEnum::GRAMASI->value        => $payload[OrderFieldsEnum::GRAMASI->value] ?? null,
-                OrderFieldsEnum::VOLUME->value         => $payload[OrderFieldsEnum::VOLUME->value] ?? null,
+                OrderFieldsEnum::TOTAL->value => $totalWithTax,
+                OrderFieldsEnum::PAID->value => $paid,
+                OrderFieldsEnum::DUE->value => max($dueWithTax, 0),
+                OrderFieldsEnum::STATUS->value => $status,
+                OrderFieldsEnum::TANGGAL_PO->value => $payload[OrderFieldsEnum::TANGGAL_PO->value] ?? null,
+                OrderFieldsEnum::TANGGAL_KIRIM->value => $payload[OrderFieldsEnum::TANGGAL_KIRIM->value] ?? null,
+                OrderFieldsEnum::JENIS_BAHAN->value => $payload[OrderFieldsEnum::JENIS_BAHAN->value] ?? null,
+                OrderFieldsEnum::GRAMASI->value => $payload[OrderFieldsEnum::GRAMASI->value] ?? null,
+                OrderFieldsEnum::VOLUME->value => $payload[OrderFieldsEnum::VOLUME->value] ?? null,
                 OrderFieldsEnum::HARGA_JUAL_PCS->value => $payload[OrderFieldsEnum::HARGA_JUAL_PCS->value] ?? null,
-                OrderFieldsEnum::JUMLAH_CETAK->value   => $payload[OrderFieldsEnum::JUMLAH_CETAK->value] ?? null,
-                OrderFieldsEnum::CATATAN->value        => $payload[OrderFieldsEnum::CATATAN->value] ?? null,
-                OrderFieldsEnum::CREATED_BY->value     => $userId,
+                OrderFieldsEnum::JUMLAH_CETAK->value => $payload[OrderFieldsEnum::JUMLAH_CETAK->value] ?? null,
+                OrderFieldsEnum::CATATAN->value => $payload[OrderFieldsEnum::CATATAN->value] ?? null,
+                OrderFieldsEnum::CREATED_BY->value => $userId,
             ];
 
             // Create order
@@ -205,11 +217,21 @@ class OrderService
             // Create transaction if paid
             if ($paid > 0) {
                 $this->transactionService->create([
-                    TransactionFieldsEnum::ORDER_ID->value     => $order->id,
-                    TransactionFieldsEnum::AMOUNT->value       => $paid,
+                    TransactionFieldsEnum::ORDER_ID->value => $order->id,
+                    TransactionFieldsEnum::AMOUNT->value => $paid,
                     TransactionFieldsEnum::PAID_THROUGH->value => $payload['paid_through'] ?? 'cash',
                 ]);
+                
+                // Log payment activity
+                $this->activityService->logPaymentAdded(
+                    $order,
+                    $paid,
+                    $payload['paid_through'] ?? 'cash'
+                );
             }
+
+            // Log order creation activity
+            $this->activityService->logCreated($order);
 
             DB::commit();
         } catch (Exception $e) {
@@ -235,13 +257,13 @@ class OrderService
     {
         try {
             DB::beginTransaction();
-            
+
             // Find existing order
             $order = $this->findByIdOrFail($id, [OrderExpandEnum::ORDER_ITEMS->value]);
-            
+
             // Get order items from payload
             $orderItems = $payload['order_items'] ?? [];
-            
+
             if (empty($orderItems)) {
                 throw new OrderCreateException("Order items cannot be empty.");
             }
@@ -263,11 +285,12 @@ class OrderService
             // Calculate sub_total and prepare new order items
             $cartSubtotal = 0;
             $processOrderItemPayloads = [];
-            
+            $customerId = $payload[OrderFieldsEnum::CUSTOMER_ID->value] ?? null;
+
             foreach ($orderItems as $item) {
                 // Get product
                 $product = $this->productService->findByIdOrFail($item['product_id'], []);
-                
+
                 // Check product is active
                 if ($product->status == ProductStatusEnum::INACTIVE->value) {
                     throw new OrderCreateException("Product id {$product->id} is not active now.");
@@ -278,15 +301,25 @@ class OrderService
                     throw new OrderCreateException("Product quantity not available for {$product->name}. Available: {$product->quantity}, Requested: {$item['quantity']}");
                 }
 
+                // Check for custom pricing first, then use provided price, fallback to selling price
                 $itemPrice = $item['price'] ?? $product->selling_price;
+                
+                // If customer is provided, check for custom pricing
+                if ($customerId) {
+                    $customPrice = $this->customPriceService->find($product->id, $customerId);
+                    if ($customPrice) {
+                        $itemPrice = $customPrice->custom_price;
+                    }
+                }
+                
                 $itemSubtotal = $itemPrice * $item['quantity'];
                 $cartSubtotal += $itemSubtotal;
 
                 $processOrderItemPayloads[] = [
                     OrderItemFieldsEnum::PRODUCT_ID->value => $product->id,
-                    OrderItemFieldsEnum::QUANTITY->value   => $item['quantity'],
-                    'unit_price'                           => $itemPrice,
-                    'subtotal'                             => $itemSubtotal,
+                    OrderItemFieldsEnum::QUANTITY->value => $item['quantity'],
+                    'unit_price' => $itemPrice,
+                    'subtotal' => $itemSubtotal,
                 ];
 
                 // Decrement product quantity
@@ -332,24 +365,32 @@ class OrderService
 
             // Update order
             $updatePayload = [
-                OrderFieldsEnum::CUSTOMER_ID->value    => $payload[OrderFieldsEnum::CUSTOMER_ID->value] ?? null,
-                OrderFieldsEnum::SALES_ID->value       => $payload[OrderFieldsEnum::SALES_ID->value] ?? null,
-                OrderFieldsEnum::SUB_TOTAL->value      => $cartSubtotal,
-                OrderFieldsEnum::TAX_TOTAL->value      => $taxTotal,
+                OrderFieldsEnum::CUSTOMER_ID->value => $payload[OrderFieldsEnum::CUSTOMER_ID->value] ?? null,
+                OrderFieldsEnum::SALES_ID->value => $payload[OrderFieldsEnum::SALES_ID->value] ?? null,
+                OrderFieldsEnum::SUB_TOTAL->value => $cartSubtotal,
+                OrderFieldsEnum::TAX_TOTAL->value => $taxTotal,
                 OrderFieldsEnum::DISCOUNT_TOTAL->value => $discountTotal,
-                OrderFieldsEnum::TOTAL->value          => $totalWithTax,
-                OrderFieldsEnum::PAID->value           => $paid,
-                OrderFieldsEnum::DUE->value            => max($dueWithTax, 0),
-                OrderFieldsEnum::STATUS->value         => $status,
-                OrderFieldsEnum::TANGGAL_PO->value     => $payload[OrderFieldsEnum::TANGGAL_PO->value] ?? null,
-                OrderFieldsEnum::TANGGAL_KIRIM->value  => $payload[OrderFieldsEnum::TANGGAL_KIRIM->value] ?? null,
-                OrderFieldsEnum::JENIS_BAHAN->value    => $payload[OrderFieldsEnum::JENIS_BAHAN->value] ?? null,
-                OrderFieldsEnum::GRAMASI->value        => $payload[OrderFieldsEnum::GRAMASI->value] ?? null,
-                OrderFieldsEnum::VOLUME->value         => $payload[OrderFieldsEnum::VOLUME->value] ?? null,
+                OrderFieldsEnum::TOTAL->value => $totalWithTax,
+                OrderFieldsEnum::PAID->value => $paid,
+                OrderFieldsEnum::DUE->value => max($dueWithTax, 0),
+                OrderFieldsEnum::STATUS->value => $status,
+                OrderFieldsEnum::TANGGAL_PO->value => $payload[OrderFieldsEnum::TANGGAL_PO->value] ?? null,
+                OrderFieldsEnum::TANGGAL_KIRIM->value => $payload[OrderFieldsEnum::TANGGAL_KIRIM->value] ?? null,
+                OrderFieldsEnum::JENIS_BAHAN->value => $payload[OrderFieldsEnum::JENIS_BAHAN->value] ?? null,
+                OrderFieldsEnum::GRAMASI->value => $payload[OrderFieldsEnum::GRAMASI->value] ?? null,
+                OrderFieldsEnum::VOLUME->value => $payload[OrderFieldsEnum::VOLUME->value] ?? null,
                 OrderFieldsEnum::HARGA_JUAL_PCS->value => $payload[OrderFieldsEnum::HARGA_JUAL_PCS->value] ?? null,
-                OrderFieldsEnum::JUMLAH_CETAK->value   => $payload[OrderFieldsEnum::JUMLAH_CETAK->value] ?? null,
-                OrderFieldsEnum::CATATAN->value        => $payload[OrderFieldsEnum::CATATAN->value] ?? null,
+                OrderFieldsEnum::JUMLAH_CETAK->value => $payload[OrderFieldsEnum::JUMLAH_CETAK->value] ?? null,
+                OrderFieldsEnum::CATATAN->value => $payload[OrderFieldsEnum::CATATAN->value] ?? null,
             ];
+
+            // Get old values before update for logging
+            $oldValues = $order->only([
+                'customer_id', 'sales_id', 'status', 'sub_total', 'total', 'paid', 'due',
+                'tanggal_po', 'tanggal_kirim', 'jenis_bahan', 'gramasi', 'volume', 
+                'harga_jual_pcs', 'jumlah_cetak', 'catatan'
+            ]);
+            $oldStatus = $order->status;
 
             $updatedOrder = $this->repository->update($order, $updatePayload);
 
@@ -359,29 +400,37 @@ class OrderService
                 orderId: $updatedOrder->id
             );
 
-            // Reload order with transaction
-            $order = $this->findByIdOrFail($id, ['transaction']);
-            
+            // Reload order with transactions
+            $order = $this->findByIdOrFail($id, ['transactions']);
+
             // Update transaction if exists, or create new one
-            $existingTransaction = $order->transaction;
+            $existingTransaction = $order->transactions->first();
             if ($paid > 0) {
                 if ($existingTransaction) {
                     // Update existing transaction
                     $existingTransaction->update([
-                        TransactionFieldsEnum::AMOUNT->value       => $paid,
+                        TransactionFieldsEnum::AMOUNT->value => $paid,
                         TransactionFieldsEnum::PAID_THROUGH->value => $payload['paid_through'] ?? 'cash',
                     ]);
                 } else {
                     // Create new transaction
                     $this->transactionService->create([
-                        TransactionFieldsEnum::ORDER_ID->value     => $order->id,
-                        TransactionFieldsEnum::AMOUNT->value       => $paid,
+                        TransactionFieldsEnum::ORDER_ID->value => $order->id,
+                        TransactionFieldsEnum::AMOUNT->value => $paid,
                         TransactionFieldsEnum::PAID_THROUGH->value => $payload['paid_through'] ?? 'cash',
                     ]);
                 }
             } elseif ($existingTransaction && $paid == 0) {
                 // If paid is now 0, delete transaction
                 $existingTransaction->delete();
+            }
+
+            // Log order update activity
+            $this->activityService->logUpdated($updatedOrder, $oldValues, $updatePayload);
+            
+            // Log status change if status changed
+            if ($oldStatus !== $status) {
+                $this->activityService->logStatusChanged($updatedOrder, $oldStatus, $status);
             }
 
             DB::commit();
@@ -410,8 +459,8 @@ class OrderService
             // Get carts for user
             $carts = $this->cartService->getAll([
                 CartFiltersEnum::USER_ID->value => $userId,
-                "expand"                        => [CartExpandEnum::PRODUCT->value],
-                "per_page"                      => 500,
+                "expand" => [CartExpandEnum::PRODUCT->value],
+                "per_page" => 500,
             ]);
 
             // Calculate sub_total
@@ -436,9 +485,9 @@ class OrderService
 
                 $processOrderItemPayloads[] = [
                     OrderItemFieldsEnum::PRODUCT_ID->value => $cart->product->id,
-                    OrderItemFieldsEnum::QUANTITY->value   => $cart->quantity,
-                    'unit_price'                           => $itemPrice,
-                    'subtotal'                             => $itemSubtotal,
+                    OrderItemFieldsEnum::QUANTITY->value => $cart->quantity,
+                    'unit_price' => $itemPrice,
+                    'subtotal' => $itemSubtotal,
                 ];
 
                 // Decrement product quantity
@@ -486,25 +535,25 @@ class OrderService
             );
 
             $processPayload = [
-                OrderFieldsEnum::CUSTOMER_ID->value    => $payload[OrderFieldsEnum::CUSTOMER_ID->value] ?? null,
-                OrderFieldsEnum::SALES_ID->value       => $payload[OrderFieldsEnum::SALES_ID->value] ?? null,
-                OrderFieldsEnum::ORDER_NUMBER->value   => 'O-' . Str::random(5),
-                OrderFieldsEnum::SUB_TOTAL->value      => $cartSubtotal,
-                OrderFieldsEnum::TAX_TOTAL->value      => $taxTotal,
+                OrderFieldsEnum::CUSTOMER_ID->value => $payload[OrderFieldsEnum::CUSTOMER_ID->value] ?? null,
+                OrderFieldsEnum::SALES_ID->value => $payload[OrderFieldsEnum::SALES_ID->value] ?? null,
+                OrderFieldsEnum::ORDER_NUMBER->value => 'O-' . Str::random(5),
+                OrderFieldsEnum::SUB_TOTAL->value => $cartSubtotal,
+                OrderFieldsEnum::TAX_TOTAL->value => $taxTotal,
                 OrderFieldsEnum::DISCOUNT_TOTAL->value => $discountTotal,
-                OrderFieldsEnum::TOTAL->value          => $totalWithTax,
-                OrderFieldsEnum::PAID->value           => $paid,
-                OrderFieldsEnum::DUE->value            => max($dueWithTax, 0),
-                OrderFieldsEnum::STATUS->value         => $status,
-                OrderFieldsEnum::TANGGAL_PO->value     => $payload[OrderFieldsEnum::TANGGAL_PO->value] ?? null,
-                OrderFieldsEnum::TANGGAL_KIRIM->value  => $payload[OrderFieldsEnum::TANGGAL_KIRIM->value] ?? null,
-                OrderFieldsEnum::JENIS_BAHAN->value    => $payload[OrderFieldsEnum::JENIS_BAHAN->value] ?? null,
-                OrderFieldsEnum::GRAMASI->value        => $payload[OrderFieldsEnum::GRAMASI->value] ?? null,
-                OrderFieldsEnum::VOLUME->value         => $payload[OrderFieldsEnum::VOLUME->value] ?? null,
+                OrderFieldsEnum::TOTAL->value => $totalWithTax,
+                OrderFieldsEnum::PAID->value => $paid,
+                OrderFieldsEnum::DUE->value => max($dueWithTax, 0),
+                OrderFieldsEnum::STATUS->value => $status,
+                OrderFieldsEnum::TANGGAL_PO->value => $payload[OrderFieldsEnum::TANGGAL_PO->value] ?? null,
+                OrderFieldsEnum::TANGGAL_KIRIM->value => $payload[OrderFieldsEnum::TANGGAL_KIRIM->value] ?? null,
+                OrderFieldsEnum::JENIS_BAHAN->value => $payload[OrderFieldsEnum::JENIS_BAHAN->value] ?? null,
+                OrderFieldsEnum::GRAMASI->value => $payload[OrderFieldsEnum::GRAMASI->value] ?? null,
+                OrderFieldsEnum::VOLUME->value => $payload[OrderFieldsEnum::VOLUME->value] ?? null,
                 OrderFieldsEnum::HARGA_JUAL_PCS->value => $payload[OrderFieldsEnum::HARGA_JUAL_PCS->value] ?? null,
-                OrderFieldsEnum::JUMLAH_CETAK->value   => $payload[OrderFieldsEnum::JUMLAH_CETAK->value] ?? null,
-                OrderFieldsEnum::CATATAN->value        => $payload[OrderFieldsEnum::CATATAN->value] ?? null,
-                OrderFieldsEnum::CREATED_BY->value     => $userId,
+                OrderFieldsEnum::JUMLAH_CETAK->value => $payload[OrderFieldsEnum::JUMLAH_CETAK->value] ?? null,
+                OrderFieldsEnum::CATATAN->value => $payload[OrderFieldsEnum::CATATAN->value] ?? null,
+                OrderFieldsEnum::CREATED_BY->value => $userId,
             ];
 
             // Create order
@@ -518,8 +567,8 @@ class OrderService
 
             // Create transaction
             $this->transactionService->create([
-                TransactionFieldsEnum::ORDER_ID->value     => $order->id,
-                TransactionFieldsEnum::AMOUNT->value       => $paid,
+                TransactionFieldsEnum::ORDER_ID->value => $order->id,
+                TransactionFieldsEnum::AMOUNT->value => $paid,
                 TransactionFieldsEnum::PAID_THROUGH->value => $payload[TransactionFieldsEnum::PAID_THROUGH->value],
             ]);
 
@@ -556,9 +605,9 @@ class OrderService
 
         $processPayload = [
             OrderFieldsEnum::DISCOUNT_TOTAL->value => $discountTotal,
-            OrderFieldsEnum::TOTAL->value          => $totalWithTax,
-            OrderFieldsEnum::DUE->value            => 0,
-            OrderFieldsEnum::STATUS->value         => OrderStatusEnum::COMPLETED->value,
+            OrderFieldsEnum::TOTAL->value => $totalWithTax,
+            OrderFieldsEnum::DUE->value => 0,
+            OrderFieldsEnum::STATUS->value => OrderStatusEnum::COMPLETED->value,
         ];
 
         return $this->repository->update($order, $processPayload);
@@ -582,8 +631,8 @@ class OrderService
         $status = ($due <= 0) ? OrderStatusEnum::COMPLETED->value : OrderStatusEnum::PENDING->value;
 
         $processPayload = [
-            OrderFieldsEnum::PAID->value   => $paid,
-            OrderFieldsEnum::DUE->value    => $due,
+            OrderFieldsEnum::PAID->value => $paid,
+            OrderFieldsEnum::DUE->value => $due,
             OrderFieldsEnum::STATUS->value => $status,
         ];
 
@@ -595,12 +644,12 @@ class OrderService
 
             // Create transaction
             $this->transactionService->create([
-                TransactionFieldsEnum::ORDER_ID->value     => $order->id,
-                TransactionFieldsEnum::AMOUNT->value       => $payload[TransactionFieldsEnum::AMOUNT->value],
+                TransactionFieldsEnum::ORDER_ID->value => $order->id,
+                TransactionFieldsEnum::AMOUNT->value => $payload[TransactionFieldsEnum::AMOUNT->value],
                 TransactionFieldsEnum::PAID_THROUGH->value => $payload[TransactionFieldsEnum::PAID_THROUGH->value],
             ]);
             DB::commit();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             throw $e;
         }

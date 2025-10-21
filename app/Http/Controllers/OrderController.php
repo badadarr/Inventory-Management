@@ -26,8 +26,10 @@ use Inertia\Inertia;
 
 class OrderController extends Controller
 {
-    public function __construct(private readonly OrderService $service)
-    {
+    public function __construct(
+        private readonly OrderService $service,
+        private readonly \App\Services\ProductCustomerPriceService $customPriceService
+    ) {
     }
 
     public function index(OrderIndexRequest $request)
@@ -159,6 +161,31 @@ class OrderController extends Controller
             ->with('flash', $flash);
     }
 
+    public function show(int $id)
+    {
+        try {
+            $order = $this->service->findByIdOrFail($id, [
+                OrderExpandEnum::CUSTOMER->value,
+                OrderExpandEnum::SALES->value,
+                OrderExpandEnum::CREATED_BY->value,
+                OrderExpandEnum::ORDER_ITEMS_PRODUCT->value . '.' . ProductExpandEnum::UNIT_TYPE->value,
+                'transactions',
+                'activities.user',
+            ]);
+
+            return Inertia::render('Order/Show', [
+                'order' => $order,
+            ]);
+        } catch (OrderNotFoundException $e) {
+            return redirect()
+                ->route('orders.index')
+                ->with('flash', [
+                    'isSuccess' => false,
+                    'message' => 'Order not found.'
+                ]);
+        }
+    }
+
     public function edit(int $id)
     {
         try {
@@ -166,6 +193,7 @@ class OrderController extends Controller
                 OrderExpandEnum::CUSTOMER->value,
                 OrderExpandEnum::SALES->value,
                 OrderExpandEnum::ORDER_ITEMS_PRODUCT->value . '.' . ProductExpandEnum::UNIT_TYPE->value,
+                'transactions',
             ]);
 
             // Check if order can be edited
@@ -206,6 +234,7 @@ class OrderController extends Controller
                 payload: $request->validated(),
                 userId: auth()->id()
             );
+            
             $flash = [
                 "isSuccess" => true,
                 "message"   => 'Order updated successfully.'
@@ -300,5 +329,32 @@ class OrderController extends Controller
         return redirect()
             ->route('orders.index')
             ->with('flash', $flash);
+    }
+
+    /**
+     * Get custom prices for a specific customer
+     * Used by Order Create/Edit to show custom pricing
+     */
+    public function getCustomPrices(int $customerId)
+    {
+        try {
+            $customPrices = $this->customPriceService->getByCustomer($customerId);
+            
+            // Format response as key-value array (product_id => custom_price)
+            $pricesMap = [];
+            foreach ($customPrices as $customPrice) {
+                $pricesMap[$customPrice->product_id] = $customPrice->custom_price;
+            }
+            
+            return response()->json([
+                'success' => true,
+                'data' => $pricesMap
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch custom prices'
+            ], 500);
+        }
     }
 }

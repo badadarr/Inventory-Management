@@ -58,6 +58,11 @@ class Order extends Model
         return $this->hasMany(SalesPoint::class);
     }
 
+    public function activities(): HasMany
+    {
+        return $this->hasMany(OrderActivity::class)->orderBy('created_at', 'desc');
+    }
+
     public function getTotalOutstandingAttribute()
     {
         return $this->total + ($this->charge ?? 0) - $this->paid;
